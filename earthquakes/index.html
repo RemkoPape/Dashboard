@@ -404,6 +404,9 @@
 };
 
 let activeFeedKey = "m5_week";
+
+const quickAddImportUri =
+  "obsidian://adv-uri?vault=Life&commandid=quickadd%3Achoice%3A395808e2-6330-4744-af7e-6daf734002c3";
     
 function buildFeedUrl(config) {
   if (config.significantFeed) {
@@ -648,6 +651,37 @@ A magnitude **${mag}** earthquake occurred near **${place}** on **${timeUTC}**.
         }
       }
 
+    async function copyAndImportEventMarkdown(properties, coordinates) {
+        const markdown = createObsidianMarkdown(properties, coordinates);
+
+        try {
+          await navigator.clipboard.writeText(markdown);
+
+          setTimeout(() => {
+            window.location.href = quickAddImportUri;
+          }, 300);
+        } catch (error) {
+          console.error(error);
+
+          const textArea = document.createElement("textarea");
+          textArea.value = markdown;
+          document.body.appendChild(textArea);
+          textArea.select();
+
+          try {
+            document.execCommand("copy");
+
+            setTimeout(() => {
+              window.location.href = quickAddImportUri;
+            }, 300);
+          } catch (fallbackError) {
+            alert("Could not copy automatically. Copy the note markdown first, then run the QuickAdd command manually.");
+          }
+
+          document.body.removeChild(textArea);
+        }
+      }
+
     function popupHtml(properties, coordinates) {
       const cls = impactClass(properties);
       const colour = colourForClass(cls);
@@ -710,6 +744,10 @@ A magnitude **${mag}** earthquake occurred near **${place}** on **${timeUTC}**.
     
           <button class="popup-button secondary" id="copy-markdown-button">
             Copy note markdown
+          </button>
+
+          <button class="popup-button secondary" id="copy-import-button">
+            Copy + import to Obsidian
           </button>
           
           </div>
@@ -789,8 +827,9 @@ A magnitude **${mag}** earthquake occurred near **${place}** on **${timeUTC}**.
         
           const popupElement = popup.getElement();
         
-        const obsidianButton = popupElement.querySelector("#obsidian-note-button");
-        const copyMarkdownButton = popupElement.querySelector("#copy-markdown-button");
+          const obsidianButton = popupElement.querySelector("#obsidian-note-button");
+          const copyMarkdownButton = popupElement.querySelector("#copy-markdown-button");
+          const copyImportButton = popupElement.querySelector("#copy-import-button");
         
         if (obsidianButton) {
           obsidianButton.addEventListener("click", () => {
@@ -804,6 +843,12 @@ A magnitude **${mag}** earthquake occurred near **${place}** on **${timeUTC}**.
           });
         }
         });
+
+        if (copyImportButton) {
+          copyImportButton.addEventListener("click", () => {
+            copyAndImportEventMarkdown(properties, coordinates);
+          });
+}
 
         map.on("mouseenter", "earthquake-points", () => {
           map.getCanvas().style.cursor = "pointer";
