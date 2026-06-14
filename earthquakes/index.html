@@ -555,26 +555,21 @@ Status: 🟧
 Uplink:
   - "[[Earthquakes]]"
   - "[[Geohazards]]"
-source: USGS Earthquake Catalog
-source_type: Live earthquake event
+Source: "[[USGS Earthquake Catalog]]"
 Magnitude: ${mag}
 Depth_km: ${depthRaw ?? ""}
-location: ${lat},${lon}
-time_utc: "${timeUTC}"
-alert: ${properties.alert ?? ""}
-mmi: ${properties.mmi ?? ""}
-felt_reports: ${properties.felt ?? ""}
-significance: ${properties.sig ?? ""}
+Location: ${lat},${lon}
+Alert: ${properties.alert ?? ""}
+MMI: ${properties.mmi ?? ""}
+Felt_reports: ${properties.felt ?? ""}
+Significance: ${properties.sig ?? ""}
 ---
 
 # ${eventTitle}
 
-## Definition
-
-A recorded earthquake event from the [[USGS Earthquake Catalog]], captured as a source note for later linking to [[Earthquakes]], [[Seismic hazard]], and [[Geohazards]].
-
 ## Quick summary
 
+A recorded earthquake event from the [[USGS Earthquake Catalog]], captured as a source note for later linking to other notes about seismic activity, geoscience, or specific locations.
 A magnitude **${mag}** earthquake occurred near **${place}** on **${timeUTC}**.
 
 ## Event details
@@ -588,24 +583,19 @@ A magnitude **${mag}** earthquake occurred near **${place}** on **${timeUTC}**.
 | Latitude | ${lat} |
 | Longitude | ${lon} |
 | Alert level | ${properties.alert ?? "not assigned"} |
-| MMI | ${properties.mmi ?? "not available"} |
+| [MMI](https://en.wikipedia.org/wiki/Modified_Mercalli_intensity_scale) | ${properties.mmi ?? "not available"} |
 | Felt reports | ${properties.felt ?? "not available"} |
 | Significance | ${properties.sig ?? "not available"} |
 
-## Map location
-
-[Open location](geo:${lat},${lon})
 
 ## Notes
 
-- This event can be linked to notes on [[Earthquake magnitude]], [[Seismic waves]], [[Plate tectonics]], or regional tectonic setting.
-- Check the USGS page for updated impact reports, felt reports, shakemap, and tectonic summary.
 
-**Similar**: [[Earthquakes]], [[Geohazards]], [[Plate tectonics]]
+**Similar**: 
 
-**Opposite**: [[Aseismic creep]]
+**Opposite**: 
 
-**Future**: Link this event to regional tectonic notes if it becomes scientifically or socially significant.
+**Future**: 
 
 **Reference**:
 
