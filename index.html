@@ -287,10 +287,12 @@
 
   <div class="feed-switcher">
     <select id="feedSelect">
-      <option value="significant_month">Significant, past 30 days</option>
-      <option value="4.5_week">M4.5+, past 7 days</option>
-      <option value="4.5_month">M4.5+, past 30 days</option>
-      <option value="2.5_day">M2.5+, past 24 hours</option>
+      <option value="m5_day">M5.0+, past 24 hours</option>
+      <option value="m5_week" selected>M5.0+, past 7 days</option>
+      <option value="m5_month">M5.0+, past 30 days</option>
+      <option value="m55_month">M5.5+, past 30 days</option>
+      <option value="m6_month">M6.0+, past 30 days</option>
+      <option value="significant_month">USGS significant, past 30 days</option>
     </select>
   </div>
 
@@ -304,18 +306,63 @@
   </section>
 
   <script>
-    const feeds = {
-      significant_month:
-        "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson",
-      "4.5_week":
-        "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson",
-      "4.5_month":
-        "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson",
-      "2.5_day":
-        "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson"
-    };
+    const feedConfigs = {
+  m5_day: {
+    label: "M5.0+, past 24 hours",
+    days: 1,
+    minMagnitude: 5.0
+  },
+  m5_week: {
+    label: "M5.0+, past 7 days",
+    days: 7,
+    minMagnitude: 5.0
+  },
+  m5_month: {
+    label: "M5.0+, past 30 days",
+    days: 30,
+    minMagnitude: 5.0
+  },
+  m55_month: {
+    label: "M5.5+, past 30 days",
+    days: 30,
+    minMagnitude: 5.5
+  },
+  m6_month: {
+    label: "M6.0+, past 30 days",
+    days: 30,
+    minMagnitude: 6.0
+  },
+  significant_month: {
+    label: "USGS significant, past 30 days",
+    significantFeed: true
+  }
+};
 
-    let activeFeed = feeds.significant_month;
+let activeFeedKey = "m5_week";
+    
+function buildFeedUrl(config) {
+  if (config.significantFeed) {
+    return "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson";
+  }
+
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - config.days);
+
+  const startTime = start.toISOString();
+  const endTime = end.toISOString();
+
+  const params = new URLSearchParams({
+    format: "geojson",
+    starttime: startTime,
+    endtime: endTime,
+    minmagnitude: config.minMagnitude,
+    eventtype: "earthquake",
+    orderby: "time"
+  });
+
+  return `https://earthquake.usgs.gov/fdsnws/event/1/query?${params.toString()}`;
+}
 
     const map = new maplibregl.Map({
       container: "map",
@@ -464,7 +511,9 @@
     }
 
     async function loadEarthquakes() {
-      const response = await fetch(activeFeed);
+      const activeConfig = feedConfigs[activeFeedKey];
+      const feedUrl = buildFeedUrl(activeConfig);
+      const response = await fetch(feedUrl);
       const data = await response.json();
 
       let maxMag = 0;
@@ -545,10 +594,10 @@
         new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     }
 
-    document.getElementById("feedSelect").addEventListener("change", event => {
-      activeFeed = feeds[event.target.value];
+      document.getElementById("feedSelect").addEventListener("change", event => {
+      activeFeedKey = event.target.value;
       loadEarthquakes();
-    });
+    });  
 
     map.on("load", () => {
       loadEarthquakes();
