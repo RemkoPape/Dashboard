@@ -523,65 +523,95 @@ function buildFeedUrl(config) {
     .slice(0, 120);
     }
     
-    function createObsidianMarkdown(properties, coordinates) {
-      const mag = formatValue(properties.mag);
-      const place = formatValue(properties.place, "Unknown location");
-      const timeUTC = formatTime(properties.time);
-    
-      const lon = coordinates[0];
-      const lat = coordinates[1];
-      const depthRaw = coordinates && coordinates.length > 2 ? coordinates[2] : null;
-      const depth = depthRaw !== null ? `${Number(depthRaw).toFixed(1)} km` : "not available";
-    
-      return `---
-    tags:
-      - Earthquake
-      - Geoscience
-      - USGS
-    source: USGS Earthquake Catalog
-    event_id: ${properties.code ?? ""}
-    magnitude: ${mag}
-    depth_km: ${depthRaw ?? ""}
-    latitude: ${lat}
-    longitude: ${lon}
-    time_utc: "${timeUTC}"
-    alert: ${properties.alert ?? ""}
-    mmi: ${properties.mmi ?? ""}
-    felt_reports: ${properties.felt ?? ""}
-    significance: ${properties.sig ?? ""}
-    url: ${properties.url}
-    ---
-    
-    # M${mag} earthquake near ${place}
-    
-    ## Quick summary
-    
-    A magnitude **${mag}** earthquake occurred near **${place}**.
-    
-    ## Event details
-    
-    | Field | Value |
-    |---|---|
-    | Magnitude | ${mag} |
-    | Depth | ${depth} |
-    | Location | ${place} |
-    | Time | ${timeUTC} |
-    | Latitude | ${lat} |
-    | Longitude | ${lon} |
-    | Alert level | ${properties.alert ?? "not assigned"} |
-    | MMI | ${properties.mmi ?? "not available"} |
-    | Felt reports | ${properties.felt ?? "not available"} |
-    | Significance | ${properties.sig ?? "not available"} |
-    
-    ## Map location
-    
-    [Open location](geo:${lat},${lon})
-    
-    ## Source
-    
-    [Open USGS event](${properties.url})
-    `;
-    }
+function createObsidianMarkdown(properties, coordinates) {
+  const mag = formatValue(properties.mag);
+  const place = formatValue(properties.place, "Unknown location");
+  const timeUTC = formatTime(properties.time);
+
+  const lon = coordinates[0];
+  const lat = coordinates[1];
+  const depthRaw = coordinates && coordinates.length > 2 ? coordinates[2] : null;
+  const depth = depthRaw !== null ? `${Number(depthRaw).toFixed(1)} km` : "not available";
+
+  const eventDate = properties.time
+    ? new Date(properties.time).toISOString().slice(0, 10)
+    : "";
+
+  const eventTitle = `M${mag} earthquake near ${place}`;
+  const eventUrl = properties.url ?? "";
+
+  return `---
+Date: ${eventDate}
+Link: ${eventUrl}
+aliases:
+  - "${eventTitle}"
+tags:
+  - Sources📥/InternetClippings🌐
+  - Events🎟️
+  - Geoscience
+  - Earthquake
+  - USGS
+Status: 🟧
+Uplink:
+  - "[[Earthquakes]]"
+  - "[[Geohazards]]"
+source: USGS Earthquake Catalog
+source_type: Live earthquake event
+Magnitude: ${mag}
+Depth_km: ${depthRaw ?? ""}
+location: ${lat},${lon}
+time_utc: "${timeUTC}"
+alert: ${properties.alert ?? ""}
+mmi: ${properties.mmi ?? ""}
+felt_reports: ${properties.felt ?? ""}
+significance: ${properties.sig ?? ""}
+---
+
+# ${eventTitle}
+
+## Definition
+
+A recorded earthquake event from the [[USGS Earthquake Catalog]], captured as a source note for later linking to [[Earthquakes]], [[Seismic hazard]], and [[Geohazards]].
+
+## Quick summary
+
+A magnitude **${mag}** earthquake occurred near **${place}** on **${timeUTC}**.
+
+## Event details
+
+| Field | Value |
+|---|---|
+| Magnitude | ${mag} |
+| Depth | ${depth} |
+| Location | ${place} |
+| Time | ${timeUTC} |
+| Latitude | ${lat} |
+| Longitude | ${lon} |
+| Alert level | ${properties.alert ?? "not assigned"} |
+| MMI | ${properties.mmi ?? "not available"} |
+| Felt reports | ${properties.felt ?? "not available"} |
+| Significance | ${properties.sig ?? "not available"} |
+
+## Map location
+
+[Open location](geo:${lat},${lon})
+
+## Notes
+
+- This event can be linked to notes on [[Earthquake magnitude]], [[Seismic waves]], [[Plate tectonics]], or regional tectonic setting.
+- Check the USGS page for updated impact reports, felt reports, shakemap, and tectonic summary.
+
+**Similar**: [[Earthquakes]], [[Geohazards]], [[Plate tectonics]]
+
+**Opposite**: [[Aseismic creep]]
+
+**Future**: Link this event to regional tectonic notes if it becomes scientifically or socially significant.
+
+**Reference**:
+
+[^1]: [USGS Earthquake Catalog - ${eventTitle}](${eventUrl})
+`;
+}
     
     function openEventInObsidian(properties, coordinates) {
       const markdown = createObsidianMarkdown(properties, coordinates);
