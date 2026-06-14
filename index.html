@@ -1,1 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Live Global Earthquakes</title>
 
+  <link
+    href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css"
+    rel="stylesheet"
+  />
+
+  <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: white;
+    }
+
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #info {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 2;
+      background: rgba(0, 0, 0, 0.72);
+      padding: 10px 12px;
+      border-radius: 8px;
+      max-width: 360px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    #legend {
+      position: absolute;
+      bottom: 20px;
+      left: 12px;
+      z-index: 2;
+      background: rgba(0, 0, 0, 0.72);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      margin: 4px 0;
+    }
+
+    .dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      margin-right: 8px;
+      display: inline-block;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div id="info">
+    <strong>Live Global Earthquakes</strong><br>
+    Source: USGS significant earthquakes, past 30 days<br>
+    Updates every 5 minutes in this dashboard<br>
+    <span id="lastUpdate">Loading...</span>
+  </div>
+
+  <div id="legend">
+    <strong>Colour by impact/intensity proxy</strong>
+    <div class="legend-row"><span class="dot" style="background:#2ecc71"></span>Green: lower impact</div>
+    <div class="legend-row"><span class="dot" style="background:#f1c40f"></span>Yellow: moderate impact</div>
+    <div class="legend-row"><span class="dot" style="background:#e67e22"></span>Orange: high impact</div>
+    <div class="legend-row"><span class="dot" style="background:#e74c3c"></span>Red: severe impact</div>
+    <div class="legend-row"><span class="dot" style="background:#9b59b6"></span>Purple: very large magnitude</div>
+  </div>
+
+  <script>
+    const feedUrl =
+      "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson";
+
+    const map = new maplibregl.Map({
+      container: "map",
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: "raster",
+            tiles: [
+              "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            ],
+            tileSize: 256,
+            attribution: "© OpenStreetMap contributors"
+          }
+        },
+        layers: [
+          {
+            id: "osm",
+            type: "raster",
+            source: "osm"
+          }
+        ]
+      },
+      center: [0, 20],
+      zoom: 1.4
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+    function classifyEvent(properties) {
+      const mag = properties.mag ?? 0;
+      const alert = properties.alert;
+
+      if (alert === "red") return "red";
+      if (alert === "orange") return "orange";
+      if (alert === "yellow") return "yellow";
+      if (alert === "green") return "green";
+
+      if (mag >= 7.5) return "purple";
+      if (mag >= 7.0) return "red";
+      if (mag >= 6.0) return "orange";
+      if (mag >= 5.0) return "yellow";
+      return "green";
+    }
+
+    function colourForClass(cls) {
+      return {
+        green: "#2ecc71",
+        yellow: "#f1c40f",
+        orange: "#e67e22",
+        red: "#e74c3c",
+        purple: "#9b59b6"
+      }[cls] || "#95a5a6";
+    }
+
+    function radiusForMagnitude(mag) {
+      if (!mag) return 6;
+      return Math.max(6, mag * 3);
+    }
+
+    async function loadEarthquakes() {
+      const response = await fetch(feedUrl);
+      const data = await response.json();
+
+      data.features = data.features.map(feature => {
+        const p = feature.properties;
+        const mag = p.mag ?? 0;
+        const cls = classifyEvent(p);
+
+        feature.properties.impact_class = cls;
+        feature.properties.marker_colour = colourForClass(cls);
+        feature.properties.marker_radius = radiusForMagnitude(mag);
+
+        return feature;
+      });
+
+      if (map.getSource("earthquakes")) {
+        map.getSource("earthquakes").setData(data);
+      } else {
+        map.addSource("earthquakes", {
+          type: "geojson",
+          data: data
+        });
+
+        map.addLayer({
+          id: "earthquake-points",
+          type: "circle",
+          source: "earthquakes",
+          paint: {
+            "circle-radius": ["get", "marker_radius"],
+            "circle-color": ["get", "marker_colour"],
+            "circle-opacity": 0.78,
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1
+          }
+        });
+
+        map.on("click", "earthquake-points", event => {
+          const p = event.features[0].properties;
+          const coords = event.features[0].geometry.coordinates.slice();
+
+          const time = new Date(p.time).toISOString().replace("T", " ").slice(0, 16);
+
+          new maplibregl.Popup()
+            .setLngLat(coords)
+            .setHTML(`
+              <strong>${p.title}</strong><br>
+              <b>Magnitude:</b> ${p.mag}<br>
+              <b>Place:</b> ${p.place}<br>
+              <b>Depth:</b> ${coords[2]} km<br>
+              <b>Time UTC:</b> ${time}<br>
+              <b>Alert:</b> ${p.alert ?? "not assigned"}<br>
+              <b>MMI:</b> ${p.mmi ?? "not available"}<br>
+              <b>Significance:</b> ${p.sig ?? "not available"}<br>
+              <a href="${p.url}" target="_blank">Open USGS event</a>
+            `)
+            .addTo(map);
+        });
+
+        map.on("mouseenter", "earthquake-points", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "earthquake-points", () => {
+          map.getCanvas().style.cursor = "";
+        });
+      }
+
+      document.getElementById("lastUpdate").textContent =
+        "Last refreshed: " + new Date().toLocaleString();
+    }
+
+    map.on("load", () => {
+      loadEarthquakes();
+
+      // Refresh every 5 minutes
+      setInterval(loadEarthquakes, 5 * 60 * 1000);
+    });
+  </script>
+</body>
+</html>
