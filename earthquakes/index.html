@@ -554,6 +554,15 @@ Date: ${eventDate}
 Link: ${eventUrl}
 aliases:
   - "${eventTitle}"
+Deaths: ${properties.deaths ?? ""}
+Source: "[[USGS Earthquake Catalog]]"
+Magnitude: ${mag}
+Depth_km: ${depthRaw ?? ""}
+Location: ${lat},${lon}
+Alert: ${properties.alert ?? ""}
+MMI: ${properties.mmi ?? ""}
+Felt_reports: ${properties.felt ?? ""}
+Significance: ${properties.sig ?? ""}
 tags:
   - Sources📥/InternetClippings🌐
   - Events🎟️
@@ -564,14 +573,6 @@ Status: 🟧
 Uplink:
   - "[[Earthquakes]]"
   - "[[Geohazards]]"
-Source: "[[USGS Earthquake Catalog]]"
-Magnitude: ${mag}
-Depth_km: ${depthRaw ?? ""}
-Location: ${lat},${lon}
-Alert: ${properties.alert ?? ""}
-MMI: ${properties.mmi ?? ""}
-Felt_reports: ${properties.felt ?? ""}
-Significance: ${properties.sig ?? ""}
 ---
 
 # ${eventTitle}
