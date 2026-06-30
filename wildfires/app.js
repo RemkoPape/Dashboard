@@ -43,12 +43,13 @@ const QUICK_ADD_IMPORT_URI =
   "obsidian://adv-uri?vault=Life&commandid=quickadd%3Achoice%3A395808e2-6330-4744-af7e-6daf734002c3";
 
 const FIRMS_SOURCE_URL = "https://firms.modaps.eosdis.nasa.gov/";
+const FIRMS_FETCH_TIMEOUT_MS = 25000;
 const FIRMS_MAP_KEY = window.WILDFIRE_CONFIG && window.WILDFIRE_CONFIG.FIRMS_MAP_KEY
   ? String(window.WILDFIRE_CONFIG.FIRMS_MAP_KEY)
   : "";
 
 const state = {
-  period: "3d",
+  period: "24h",
   intensity: "all",
   confidence: "nominal_high",
   satellite: "all",
@@ -173,6 +174,26 @@ function parseFloatOrNull(value) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function fetchTextWithTimeout(url, timeoutMs = FIRMS_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal
+    });
+    return response;
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 function parseAcqDateTime(acqDate, acqTime) {
@@ -323,6 +344,7 @@ function buildLiveCollection(features, periodLabel, generatedAt) {
       period_label: periodLabel,
       feature_count: features.length,
       source_counts: sourceCounts,
+      warnings: [],
       disclaimer: "Satellite-detected active fire / thermal anomaly observations are not official wildfire perimeters and may include agricultural burning, industrial heat sources, volcanoes, gas flares, or other thermal anomalies."
     },
     features
@@ -708,22 +730,44 @@ async function loadDataset(periodKey) {
 
   const fetchedAt = new Date();
   const allFeatures = [];
+  const warnings = [];
 
-  for (const sourceName of Object.keys(FIRMS_SOURCES)) {
-    const url = `${FIRMS_SOURCE_URL}api/area/csv/${encodeURIComponent(FIRMS_MAP_KEY)}/${sourceName}/world/${dataset.dayRange}`;
-    const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Could not load ${dataset.label} FIRMS data for ${sourceName} (${response.status})`);
-    }
+  const sourceResults = await Promise.all(
+    Object.keys(FIRMS_SOURCES).map(async (sourceName) => {
+      const url = `${FIRMS_SOURCE_URL}api/area/csv/${encodeURIComponent(FIRMS_MAP_KEY)}/${sourceName}/world/${dataset.dayRange}`;
 
-    const rows = parseCsv(await response.text());
+      try {
+        const response = await fetchTextWithTimeout(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const rows = parseCsv(await response.text());
+        return { sourceName, rows };
+      } catch (error) {
+        const reason = error && error.message ? error.message : String(error);
+        warnings.push(`${FIRMS_SOURCES[sourceName] || sourceName}: ${reason}`);
+        return { sourceName, rows: [] };
+      }
+    })
+  );
+
+  sourceResults.forEach(({ sourceName, rows }) => {
     rows.forEach((row) => {
       const feature = rowToFeature(row, sourceName, fetchedAt);
       if (feature) allFeatures.push(feature);
     });
+  });
+
+  if (!allFeatures.length) {
+    const reason = warnings.length
+      ? warnings.join(" | ")
+      : "No FIRMS detections were returned.";
+    throw new Error(`Could not load ${dataset.label} FIRMS data. ${reason}`);
   }
 
   const data = buildLiveCollection(allFeatures, dataset.label, fetchedAt);
+  data.metadata.warnings = warnings;
   state.cache.set(periodKey, data);
   return data;
 }
@@ -744,7 +788,12 @@ async function refreshMapForCurrentState() {
       collection.metadata || {}
     );
     setMapData(displayCollection);
-    if (!Array.isArray(collection.features) || collection.features.length === 0) {
+    const warnings = Array.isArray(collection.metadata && collection.metadata.warnings)
+      ? collection.metadata.warnings
+      : [];
+    if (warnings.length) {
+      setStatusMessage(`Partial live data loaded. ${warnings.join(" | ")}`);
+    } else if (!Array.isArray(collection.features) || collection.features.length === 0) {
       setStatusMessage("No wildfire detections were returned for this period.");
     }
   } catch (error) {
