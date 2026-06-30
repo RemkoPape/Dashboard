@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Files</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #08111a;
+      color: #f4f7fb;
+    }
+
+    .card {
+      width: min(760px, 100%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      padding: 28px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(30px, 5vw, 46px);
+      line-height: 1;
+      letter-spacing: -1.2px;
+    }
+
+    p, li {
+      color: #b7c3d1;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    ul {
+      margin: 14px 0 0;
+      padding-left: 18px;
+    }
+
+    a {
+      color: #c4b5fd;
+    }
+
+    .actions {
+      margin-top: 18px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 0 15px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 700;
+      background: #f4f7fb;
+      color: #08111a;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>PDF files live here.</h1>
+    <p>
+      The links on <a href="../">the documents page</a> point to these exact files.
+      If you rename one, update the matching link there.
+    </p>
+    <ul>
+      <li><code>cv van Remko HENDRIK Pape 19-09-2025 (short).pdf</code></li>
+      <li><code>Avans University Bachelor Environmental science HBO Certificate Remko H. Pape (2174823).pdf</code></li>
+      <li><code>Cambridge certificate English StatementOfResult.pdf</code></li>
+      <li><code>Graduation report Remko H. Pape Avans University, Complexity of Climate Models for Mountainous Regions.pdf</code></li>
+      <li><code>Senior general secondary education - EN (HAVO).pdf</code></li>
+    </ul>
+    <div class="actions">
+      <a class="button" href="../">Back to documents</a>
+    </div>
+  </main>
+</body>
+</html>
