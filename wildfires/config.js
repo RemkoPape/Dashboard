@@ -1,1 +1,0 @@
-window.WILDFIRE_CONFIG = { FIRMS_MAP_KEY: 'b6173d898adf706290dc26e4cafad4d1' };

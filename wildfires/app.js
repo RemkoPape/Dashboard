@@ -1,22 +1,16 @@
 const DATASETS = {
-  "24h": {
-    label: "Past 24 hours",
-    dayRange: 1
+  "7d": {
+    label: "Past 7 days",
+    days: 7
   },
-  "3d": {
-    label: "Past 3 days",
-    dayRange: 3
+  "30d": {
+    label: "Past 30 days",
+    days: 30
   },
-  "5d": {
-    label: "Past 5 days",
-    dayRange: 5
+  "90d": {
+    label: "Past 90 days",
+    days: 90
   }
-};
-
-const FIRMS_SOURCES = {
-  VIIRS_SNPP_NRT: "Suomi-NPP",
-  VIIRS_NOAA20_NRT: "NOAA-20",
-  VIIRS_NOAA21_NRT: "NOAA-21"
 };
 
 const INTENSITY_COLOURS = {
@@ -27,32 +21,21 @@ const INTENSITY_COLOURS = {
 };
 
 const INTENSITY_LABELS = {
-  low: "Low",
-  moderate: "Moderate",
-  high: "High",
-  extreme: "Extreme"
-};
-
-const SATELLITE_LABELS = {
-  "Suomi-NPP": "Suomi-NPP",
-  "NOAA-20": "NOAA-20",
-  "NOAA-21": "NOAA-21"
+  low: "Smaller event",
+  moderate: "Moderate event",
+  high: "Large event",
+  extreme: "Major event"
 };
 
 const QUICK_ADD_IMPORT_URI =
   "obsidian://adv-uri?vault=Life&commandid=quickadd%3Achoice%3A395808e2-6330-4744-af7e-6daf734002c3";
 
-const FIRMS_SOURCE_URL = "https://firms.modaps.eosdis.nasa.gov/";
-const FIRMS_FETCH_TIMEOUT_MS = 25000;
-const FIRMS_MAP_KEY = window.WILDFIRE_CONFIG && window.WILDFIRE_CONFIG.FIRMS_MAP_KEY
-  ? String(window.WILDFIRE_CONFIG.FIRMS_MAP_KEY)
-  : "";
+const EONET_EVENTS_URL = "https://eonet.gsfc.nasa.gov/api/v3/events/geojson";
+const EONET_DOCS_URL = "https://eonet.gsfc.nasa.gov/docs/v3";
 
 const state = {
-  period: "24h",
+  period: "30d",
   intensity: "all",
-  confidence: "nominal_high",
-  satellite: "all",
   cache: new Map(),
   currentCollection: null,
   activeRequestId: 0
@@ -61,8 +44,6 @@ const state = {
 const elements = {
   periodSelect: document.getElementById("periodSelect"),
   intensitySelect: document.getElementById("intensitySelect"),
-  confidenceSelect: document.getElementById("confidenceSelect"),
-  satelliteSelect: document.getElementById("satelliteSelect"),
   visibleCount: document.getElementById("visibleCount"),
   highestFrp: document.getElementById("highestFrp"),
   extremeCount: document.getElementById("extremeCount"),
@@ -134,11 +115,10 @@ function formatLastUpdate(value) {
   });
 }
 
-function formatAgeHours(value) {
-  const hours = Number(value);
-  if (!Number.isFinite(hours)) return "not available";
-  if (hours < 24) return `${hours.toFixed(1)} h`;
-  return `${(hours / 24).toFixed(1)} d`;
+function formatCount(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "0";
+  return number.toLocaleString();
 }
 
 function formatCoordinate(value) {
@@ -147,16 +127,17 @@ function formatCoordinate(value) {
   return number.toFixed(4);
 }
 
-function formatFrp(value) {
+function formatAcres(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return "not available";
-  return `${number.toFixed(1)} MW`;
+  return `${number.toLocaleString(undefined, { maximumFractionDigits: 0 })} acres`;
 }
 
-function formatBrightness(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "not available";
-  return `${number.toFixed(1)} K`;
+function formatAgeHours(value) {
+  const hours = Number(value);
+  if (!Number.isFinite(hours)) return "not available";
+  if (hours < 24) return `${hours.toFixed(1)} h`;
+  return `${(hours / 24).toFixed(1)} d`;
 }
 
 function frontMatterScalar(value) {
@@ -170,201 +151,12 @@ function setStatusMessage(message = "") {
   elements.statusPanel.textContent = message;
 }
 
-function parseFloatOrNull(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-async function fetchTextWithTimeout(url, timeoutMs = FIRMS_FETCH_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      signal: controller.signal
-    });
-    return response;
-  } catch (error) {
-    if (error && error.name === "AbortError") {
-      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s`);
-    }
-    throw error;
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-function parseAcqDateTime(acqDate, acqTime) {
-  if (!acqDate) return null;
-  const timeText = String(acqTime || "0000").trim().padStart(4, "0");
-  const parsed = new Date(`${acqDate}T${timeText.slice(0, 2)}:${timeText.slice(2, 4)}:00Z`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function normalizeConfidence(rawValue) {
-  if (rawValue === null || rawValue === undefined || rawValue === "") {
-    return { label: "Unknown", className: "unknown" };
-  }
-
-  const text = String(rawValue).trim();
-  const lowered = text.toLowerCase();
-  if (lowered === "h" || lowered === "high") return { label: "High", className: "high" };
-  if (lowered === "n" || lowered === "nominal") return { label: "Nominal", className: "nominal" };
-  if (lowered === "l" || lowered === "low") return { label: "Low", className: "low" };
-
-  const numeric = Number.parseFloat(lowered);
-  if (!Number.isFinite(numeric)) return { label: text, className: lowered || "unknown" };
-  if (numeric >= 80) return { label: `${numeric}`, className: "high" };
-  if (numeric >= 30) return { label: `${numeric}`, className: "nominal" };
-  return { label: `${numeric}`, className: "low" };
-}
-
-function normalizeDayNight(rawValue) {
-  if (!rawValue) return "Unknown";
-  const lowered = String(rawValue).trim().toLowerCase();
-  if (lowered === "d") return "Day";
-  if (lowered === "n") return "Night";
-  return String(rawValue);
-}
-
-function featureIdentifier(properties) {
-  return [
-    properties.source,
-    properties.acq_datetime_utc,
-    properties.latitude,
-    properties.longitude,
-    properties.frp,
-    properties.brightness,
-    properties.daynight
-  ].join("|");
-}
-
-function parseCsv(text) {
-  const normalized = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = normalized.split("\n").filter((line) => line.trim() !== "");
-  if (!lines.length) return [];
-
-  function splitCsvLine(line) {
-    const values = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let index = 0; index < line.length; index += 1) {
-      const char = line[index];
-      const next = line[index + 1];
-      if (char === "\"") {
-        if (inQuotes && next === "\"") {
-          current += "\"";
-          index += 1;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === "," && !inQuotes) {
-        values.push(current);
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-
-    values.push(current);
-    return values;
-  }
-
-  const headers = splitCsvLine(lines[0]).map((header) => header.trim());
-  return lines.slice(1).map((line) => {
-    const values = splitCsvLine(line);
-    const row = {};
-    headers.forEach((header, index) => {
-      row[header] = values[index] ?? "";
-    });
-    return row;
-  });
-}
-
-function rowToFeature(row, sourceName, fetchedAt) {
-  const latitude = parseFloatOrNull(row.latitude);
-  const longitude = parseFloatOrNull(row.longitude);
-  const acquisition = parseAcqDateTime(row.acq_date, row.acq_time);
-  if (latitude === null || longitude === null || !acquisition) return null;
-
-  const brightness = parseFloatOrNull(row.brightness)
-    ?? parseFloatOrNull(row.bright_ti4)
-    ?? parseFloatOrNull(row.bright_t31);
-  const frp = parseFloatOrNull(row.frp);
-  const confidence = normalizeConfidence(row.confidence);
-  const intensityClass = intensityClassForFrp(frp);
-  const ageHours = Math.max(0, Math.round(((fetchedAt.getTime() - acquisition.getTime()) / 3600000) * 100) / 100);
-
-  const properties = {
-    latitude,
-    longitude,
-    acq_date: row.acq_date || "",
-    acq_time: String(row.acq_time || "").padStart(4, "0"),
-    acq_datetime_utc: acquisition.toISOString(),
-    satellite: FIRMS_SOURCES[sourceName] || sourceName,
-    instrument: row.instrument || "VIIRS",
-    confidence: confidence.label,
-    brightness,
-    frp,
-    daynight: normalizeDayNight(row.daynight),
-    source: sourceName,
-    age_hours: ageHours,
-    intensity_class: intensityClass,
-    confidence_class: confidence.className
-  };
-
-  return {
-    type: "Feature",
-    id: featureIdentifier(properties),
-    geometry: {
-      type: "Point",
-      coordinates: [longitude, latitude]
-    },
-    properties
-  };
-}
-
-function buildLiveCollection(features, periodLabel, generatedAt) {
-  const sourceCounts = Object.fromEntries(
-    Object.keys(FIRMS_SOURCES).map((sourceName) => [sourceName, 0])
-  );
-
-  features.forEach((feature) => {
-    const sourceName = feature.properties && feature.properties.source;
-    if (sourceName in sourceCounts) sourceCounts[sourceName] += 1;
-  });
-
-  return {
-    type: "FeatureCollection",
-    metadata: {
-      generated_at_utc: generatedAt.toISOString(),
-      period_label: periodLabel,
-      feature_count: features.length,
-      source_counts: sourceCounts,
-      warnings: [],
-      disclaimer: "Satellite-detected active fire / thermal anomaly observations are not official wildfire perimeters and may include agricultural burning, industrial heat sources, volcanoes, gas flares, or other thermal anomalies."
-    },
-    features
-  };
-}
-
-function safeFileName(text) {
-  return String(text)
-    .replace(/[\\/:*?"<>|]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
-}
-
-function intensityClassForFrp(frp) {
-  const value = Number(frp);
+function intensityClassForAcres(acres) {
+  const value = Number(acres);
   if (!Number.isFinite(value)) return "low";
-  if (value < 10) return "low";
-  if (value < 50) return "moderate";
-  if (value < 150) return "high";
+  if (value < 100) return "low";
+  if (value < 1000) return "moderate";
+  if (value < 10000) return "high";
   return "extreme";
 }
 
@@ -372,37 +164,29 @@ function colourForIntensity(intensityClass) {
   return INTENSITY_COLOURS[intensityClass] || "#f7d154";
 }
 
-function radiusForIntensity(intensityClass, frp) {
+function radiusForIntensity(intensityClass, acres) {
   const base = {
-    low: 6,
-    moderate: 8,
-    high: 11,
-    extreme: 15
-  }[intensityClass] || 6;
-  const frpValue = Number(frp);
-  if (!Number.isFinite(frpValue)) return base;
-  return Math.max(base, Math.min(base + Math.sqrt(frpValue) * 0.45, base + 10));
+    low: 7,
+    moderate: 9,
+    high: 12,
+    extreme: 16
+  }[intensityClass] || 7;
+  const acresValue = Number(acres);
+  if (!Number.isFinite(acresValue)) return base;
+  return Math.max(base, Math.min(base + Math.log10(Math.max(acresValue, 1)) * 3, base + 10));
 }
 
 function opacityForAge(ageHours) {
   const age = Number(ageHours);
-  if (!Number.isFinite(age)) return 0.78;
-  if (age <= 24) return 0.92;
-  if (age <= 72) return 0.78;
-  if (age <= 120) return 0.62;
-  if (age <= 720) return 0.42;
-  return 0.24;
+  if (!Number.isFinite(age)) return 0.82;
+  if (age <= 72) return 0.92;
+  if (age <= 168) return 0.8;
+  if (age <= 720) return 0.68;
+  return 0.55;
 }
 
 function glowOpacityForAge(ageHours) {
-  return Math.max(0.08, opacityForAge(ageHours) * 0.26);
-}
-
-function confidenceMatches(properties) {
-  const confidenceClass = String(properties.confidence_class || "").toLowerCase();
-  if (state.confidence === "all") return true;
-  if (state.confidence === "high_only") return confidenceClass === "high";
-  return confidenceClass === "nominal" || confidenceClass === "high";
+  return Math.max(0.1, opacityForAge(ageHours) * 0.28);
 }
 
 function intensityMatches(properties) {
@@ -410,9 +194,98 @@ function intensityMatches(properties) {
   return String(properties.intensity_class || "").toLowerCase() === state.intensity;
 }
 
-function satelliteMatches(properties) {
-  if (state.satellite === "all") return true;
-  return String(properties.satellite || "") === state.satellite;
+function representativeCoordinates(geometry) {
+  if (!geometry || !geometry.type) return null;
+
+  if (geometry.type === "Point" && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates.slice(0, 2);
+  }
+
+  const queue = Array.isArray(geometry.coordinates) ? [...geometry.coordinates] : [];
+  const points = [];
+
+  while (queue.length) {
+    const value = queue.shift();
+    if (Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") {
+      points.push([value[0], value[1]]);
+    } else if (Array.isArray(value)) {
+      queue.push(...value);
+    }
+  }
+
+  if (!points.length) return null;
+
+  const sums = points.reduce((accumulator, point) => {
+    return [accumulator[0] + point[0], accumulator[1] + point[1]];
+  }, [0, 0]);
+
+  return [sums[0] / points.length, sums[1] / points.length];
+}
+
+function sourceSummary(sources) {
+  const labels = (Array.isArray(sources) ? sources : [])
+    .map((source) => source && (source.id || source.title || source.url))
+    .filter(Boolean);
+
+  if (!labels.length) return "NASA EONET";
+  return labels.join(", ");
+}
+
+function eventToFeature(event, fetchedAt) {
+  const coordinates = representativeCoordinates(event.geometry);
+  if (!coordinates) return null;
+
+  const properties = event.properties || {};
+  const eventDate = properties.date ? new Date(properties.date) : null;
+  if (!eventDate || Number.isNaN(eventDate.getTime())) return null;
+
+  const acres = Number(properties.magnitudeValue);
+  const intensityClass = intensityClassForAcres(acres);
+  const ageHours = Math.max(0, Math.round(((fetchedAt.getTime() - eventDate.getTime()) / 3600000) * 100) / 100);
+  const sources = Array.isArray(properties.sources) ? properties.sources : [];
+  const primarySource = sources[0] || {};
+
+  return {
+    type: "Feature",
+    id: properties.id || `${properties.title || "wildfire"}:${properties.date || ""}`,
+    geometry: {
+      type: "Point",
+      coordinates
+    },
+    properties: {
+      event_id: properties.id || "",
+      title: properties.title || "Wildfire event",
+      description: properties.description || "",
+      event_link: properties.link || "",
+      source_label: sourceSummary(sources),
+      source_url: primarySource.url || properties.link || EONET_DOCS_URL,
+      source_count: sources.length,
+      category: "Wildfires",
+      reported_at_utc: eventDate.toISOString(),
+      closed_at_utc: properties.closed || "",
+      acres: Number.isFinite(acres) ? acres : null,
+      magnitude_unit: properties.magnitudeUnit || "acres",
+      latitude: Number(coordinates[1]),
+      longitude: Number(coordinates[0]),
+      age_hours: ageHours,
+      intensity_class: intensityClass,
+      intensity_label: INTENSITY_LABELS[intensityClass] || "Wildfire event"
+    }
+  };
+}
+
+function buildLiveCollection(features, periodLabel, generatedAt) {
+  return {
+    type: "FeatureCollection",
+    metadata: {
+      generated_at_utc: generatedAt.toISOString(),
+      period_label: periodLabel,
+      feature_count: features.length,
+      source_name: "NASA EONET",
+      disclaimer: "These are EONET wildfire events, which are lighter incident-style records rather than every satellite thermal detection."
+    },
+    features
+  };
 }
 
 function normalizeFeature(feature) {
@@ -421,33 +294,26 @@ function normalizeFeature(feature) {
     ? feature.geometry.coordinates
     : [properties.longitude, properties.latitude];
 
-  const intensityClass = String(
-    properties.intensity_class || intensityClassForFrp(properties.frp)
-  ).toLowerCase();
-  const confidenceClass = String(properties.confidence_class || "").toLowerCase();
-  const markerRadius = radiusForIntensity(intensityClass, properties.frp);
+  const intensityClass = String(properties.intensity_class || intensityClassForAcres(properties.acres)).toLowerCase();
+  const markerRadius = radiusForIntensity(intensityClass, properties.acres);
   const markerOpacity = opacityForAge(properties.age_hours);
 
   return {
     type: "Feature",
-    id: feature.id || properties.id || null,
+    id: feature.id || properties.event_id || null,
     geometry: {
       type: "Point",
-      coordinates: [
-        Number(coordinates[0]),
-        Number(coordinates[1])
-      ]
+      coordinates: [Number(coordinates[0]), Number(coordinates[1])]
     },
     properties: {
       ...properties,
       intensity_class: intensityClass,
-      intensity_label: INTENSITY_LABELS[intensityClass] || "Low",
-      confidence_class: confidenceClass,
+      intensity_label: INTENSITY_LABELS[intensityClass] || "Wildfire event",
       marker_colour: colourForIntensity(intensityClass),
       marker_radius: markerRadius,
       marker_opacity: markerOpacity,
       glow_opacity: glowOpacityForAge(properties.age_hours),
-      marker_stroke: "rgba(255,255,255,0.9)"
+      marker_stroke: "rgba(255,255,255,0.92)"
     }
   };
 }
@@ -456,11 +322,7 @@ function filteredFeaturesFrom(collection) {
   const features = Array.isArray(collection.features) ? collection.features : [];
   return features
     .map(normalizeFeature)
-    .filter((feature) =>
-      intensityMatches(feature.properties) &&
-      confidenceMatches(feature.properties) &&
-      satelliteMatches(feature.properties)
-    );
+    .filter((feature) => intensityMatches(feature.properties));
 }
 
 function buildDisplayCollection(features, metadata = {}) {
@@ -473,23 +335,20 @@ function buildDisplayCollection(features, metadata = {}) {
 
 function updateStats(collection) {
   const features = Array.isArray(collection.features) ? collection.features : [];
-  const maxFrp = features.reduce((maxValue, feature) => {
-    const frp = Number(feature.properties.frp);
-    return Number.isFinite(frp) ? Math.max(maxValue, frp) : maxValue;
+  const maxAcres = features.reduce((maxValue, feature) => {
+    const acres = Number(feature.properties.acres);
+    return Number.isFinite(acres) ? Math.max(maxValue, acres) : maxValue;
   }, 0);
-  const extremeCount = features.filter(
-    (feature) => feature.properties.intensity_class === "extreme"
-  ).length;
+  const majorCount = features.filter((feature) => feature.properties.intensity_class === "extreme").length;
 
   elements.visibleCount.textContent = String(features.length);
-  elements.highestFrp.textContent = `${maxFrp.toFixed(1)} MW`;
-  elements.extremeCount.textContent = String(extremeCount);
+  elements.highestFrp.textContent = formatAcres(maxAcres);
+  elements.extremeCount.textContent = String(majorCount);
   elements.lastUpdate.textContent = formatLastUpdate(collection.metadata.generated_at_utc);
 }
 
 function setMapData(collection) {
   updateStats(collection);
-
   if (!map.getSource("fires")) return;
   map.getSource("fires").setData(collection);
 }
@@ -497,25 +356,27 @@ function setMapData(collection) {
 function buildPopupHtml(properties, coordinates) {
   const intensityClass = String(properties.intensity_class || "low").toLowerCase();
   const headerColour = colourForIntensity(intensityClass);
-  const title = `${formatValue(properties.intensity_label, "Low")} active fire / thermal anomaly`;
+  const descriptionBlock = properties.description
+    ? `<p><strong>Description:</strong><br>${escapeHtml(properties.description)}</p>`
+    : "";
 
   return `
     <div class="fire-popup">
       <div class="fire-popup-header" style="background:${headerColour}">
-        <h2>${escapeHtml(title)}</h2>
-        <div class="subtitle">${escapeHtml(formatValue(properties.source, "NASA FIRMS"))}</div>
+        <h2>${escapeHtml(formatValue(properties.title, "Wildfire event"))}</h2>
+        <div class="subtitle">${escapeHtml(formatValue(properties.intensity_label, "Wildfire event"))}</div>
       </div>
 
       <div class="fire-popup-body">
         <div class="popup-grid">
           <div class="popup-metric">
-            <span>Detection time UTC</span>
-            <strong>${escapeHtml(formatUtcDateTime(properties.acq_datetime_utc))}</strong>
+            <span>Reported UTC</span>
+            <strong>${escapeHtml(formatUtcDateTime(properties.reported_at_utc))}</strong>
           </div>
 
           <div class="popup-metric">
-            <span>FRP</span>
-            <strong>${escapeHtml(formatFrp(properties.frp))}</strong>
+            <span>Estimated size</span>
+            <strong>${escapeHtml(formatAcres(properties.acres))}</strong>
           </div>
 
           <div class="popup-metric">
@@ -524,43 +385,25 @@ function buildPopupHtml(properties, coordinates) {
           </div>
 
           <div class="popup-metric">
-            <span>Brightness temperature</span>
-            <strong>${escapeHtml(formatBrightness(properties.brightness))}</strong>
-          </div>
-
-          <div class="popup-metric">
-            <span>Satellite</span>
-            <strong>${escapeHtml(formatValue(properties.satellite))}</strong>
-          </div>
-
-          <div class="popup-metric">
-            <span>Instrument</span>
-            <strong>${escapeHtml(formatValue(properties.instrument))}</strong>
-          </div>
-
-          <div class="popup-metric">
-            <span>Confidence</span>
-            <strong>${escapeHtml(formatValue(properties.confidence))}</strong>
-          </div>
-
-          <div class="popup-metric">
-            <span>Day / night</span>
-            <strong>${escapeHtml(formatValue(properties.daynight))}</strong>
-          </div>
-
-          <div class="popup-metric">
-            <span>Intensity class</span>
-            <strong>${escapeHtml(formatValue(properties.intensity_label))}</strong>
-          </div>
-
-          <div class="popup-metric">
             <span>Detection age</span>
             <strong>${escapeHtml(formatAgeHours(properties.age_hours))}</strong>
           </div>
+
+          <div class="popup-metric">
+            <span>Source feed</span>
+            <strong>${escapeHtml(formatValue(properties.source_label))}</strong>
+          </div>
+
+          <div class="popup-metric">
+            <span>Event ID</span>
+            <strong>${escapeHtml(formatValue(properties.event_id))}</strong>
+          </div>
         </div>
 
-        <a class="popup-link" href="${FIRMS_SOURCE_URL}" target="_blank" rel="noopener">
-          Open NASA FIRMS source
+        ${descriptionBlock}
+
+        <a class="popup-link" href="${escapeHtml(properties.event_link || properties.source_url || EONET_DOCS_URL)}" target="_blank" rel="noopener">
+          Open EONET event
         </a>
 
         <button class="popup-button" id="obsidian-note-button">
@@ -582,81 +425,75 @@ function buildPopupHtml(properties, coordinates) {
 function createObsidianMarkdown(properties, coordinates) {
   const lat = Number(coordinates[1]);
   const lon = Number(coordinates[0]);
-  const eventDate = properties.acq_datetime_utc
-    ? String(properties.acq_datetime_utc).slice(0, 10)
+  const eventDate = properties.reported_at_utc
+    ? String(properties.reported_at_utc).slice(0, 10)
     : "";
-  const frpValue = formatFrp(properties.frp);
-  const brightness = formatBrightness(properties.brightness);
-  const intensity = formatValue(properties.intensity_label, "Low");
-  const confidence = formatValue(properties.confidence);
-  const title = `${intensity} active fire / thermal anomaly at ${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+  const title = `${formatValue(properties.title, "Wildfire event")} (${lat.toFixed(3)}, ${lon.toFixed(3)})`;
 
   return `---
 Date: ${eventDate}
-Link: ${FIRMS_SOURCE_URL}
+Link: ${frontMatterScalar(properties.event_link || properties.source_url || EONET_DOCS_URL)}
 aliases:
   - "${title}"
-Source: "[[NASA FIRMS]]"
-Detection_time_utc: ${frontMatterScalar(properties.acq_datetime_utc)}
-Satellite: ${frontMatterScalar(properties.satellite)}
-Instrument: ${frontMatterScalar(properties.instrument)}
-Confidence: ${confidence}
-Intensity_class: ${intensity}
-FRP_MW: ${frontMatterScalar(properties.frp)}
-Brightness_K: ${frontMatterScalar(properties.brightness)}
-DayNight: ${frontMatterScalar(properties.daynight)}
+Source: "[[NASA EONET]]"
+Event_ID: ${frontMatterScalar(properties.event_id)}
+Reported_UTC: ${frontMatterScalar(properties.reported_at_utc)}
+Estimated_Size_Acres: ${frontMatterScalar(properties.acres)}
+Source_Feed: ${frontMatterScalar(properties.source_label)}
 Location: ${lat},${lon}
 tags:
   - Geoscience
   - Geohazards
   - Wildfire
-  - NASA-FIRMS
+  - NASA-EONET
 ---
 
 # ${title}
 
 ## Quick summary
 
-This note records a satellite-detected active fire / thermal anomaly observation from [[NASA FIRMS]] for later linking, review, and context building.
+This note records a wildfire event from [[NASA EONET]] for linking and later review.
 
-The detection was observed on **${formatUtcDateTime(properties.acq_datetime_utc)}** by **${formatValue(properties.satellite)}** (${formatValue(properties.instrument)}) with **${confidence.toLowerCase()} confidence** and a Fire Radiative Power of **${frpValue}**.
+The event was reported on **${formatUtcDateTime(properties.reported_at_utc)}** with an estimated size of **${formatAcres(properties.acres)}**.
 
-## Detection details
+## Event details
 
 | Field | Value |
 |---|---|
-| Detection time UTC | ${formatUtcDateTime(properties.acq_datetime_utc)} |
+| Title | ${formatValue(properties.title)} |
+| Reported UTC | ${formatUtcDateTime(properties.reported_at_utc)} |
+| Estimated size | ${formatAcres(properties.acres)} |
 | Latitude | ${lat.toFixed(4)} |
 | Longitude | ${lon.toFixed(4)} |
-| Satellite | ${formatValue(properties.satellite)} |
-| Instrument | ${formatValue(properties.instrument)} |
-| Confidence | ${confidence} |
-| FRP | ${frpValue} |
-| Brightness temperature | ${brightness} |
-| Day / night | ${formatValue(properties.daynight)} |
-| Intensity class | ${intensity} |
+| Source feed | ${formatValue(properties.source_label)} |
+| Event ID | ${formatValue(properties.event_id)} |
 | Detection age | ${formatAgeHours(properties.age_hours)} |
-
-## Interpretation note
-
-These data represent a satellite-detected active fire / thermal anomaly and are **not** official wildfire perimeter mapping. Agricultural burning, industrial heat sources, volcanoes, gas flares, and other thermal anomalies may also appear in this dataset.
 
 ## Notes
 
+${formatValue(properties.description, "")}
 
 ## Reference
 
-[^1]: [NASA FIRMS active fire data](${FIRMS_SOURCE_URL})
+[^1]: [NASA EONET wildfire event](${frontMatterScalar(properties.event_link || properties.source_url || EONET_DOCS_URL)})
 `;
+}
+
+function safeFileName(text) {
+  return String(text)
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
 }
 
 function openEventInObsidian(properties, coordinates) {
   const markdown = createObsidianMarkdown(properties, coordinates);
-  const timestamp = properties.acq_datetime_utc
-    ? String(properties.acq_datetime_utc).slice(0, 10)
+  const timestamp = properties.reported_at_utc
+    ? String(properties.reported_at_utc).slice(0, 10)
     : "unknown-date";
   const fileName = safeFileName(
-    `Active Fire - ${properties.satellite ?? "Unknown"} - ${timestamp} - ${formatCoordinate(coordinates[1])}, ${formatCoordinate(coordinates[0])}`
+    `Wildfire - ${properties.title || "Unknown"} - ${timestamp}`
   );
   const obsidianUrl =
     "obsidian://new?" +
@@ -724,50 +561,26 @@ async function loadDataset(periodKey) {
   }
 
   const dataset = DATASETS[periodKey];
-  if (!FIRMS_MAP_KEY) {
-    throw new Error("Missing public FIRMS map key in wildfires/config.js");
-  }
-
-  const fetchedAt = new Date();
-  const allFeatures = [];
-  const warnings = [];
-
-  const sourceResults = await Promise.all(
-    Object.keys(FIRMS_SOURCES).map(async (sourceName) => {
-      const url = `${FIRMS_SOURCE_URL}api/area/csv/${encodeURIComponent(FIRMS_MAP_KEY)}/${sourceName}/world/${dataset.dayRange}`;
-
-      try {
-        const response = await fetchTextWithTimeout(url);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const rows = parseCsv(await response.text());
-        return { sourceName, rows };
-      } catch (error) {
-        const reason = error && error.message ? error.message : String(error);
-        warnings.push(`${FIRMS_SOURCES[sourceName] || sourceName}: ${reason}`);
-        return { sourceName, rows: [] };
-      }
-    })
-  );
-
-  sourceResults.forEach(({ sourceName, rows }) => {
-    rows.forEach((row) => {
-      const feature = rowToFeature(row, sourceName, fetchedAt);
-      if (feature) allFeatures.push(feature);
-    });
+  const params = new URLSearchParams({
+    category: "wildfires",
+    status: "open",
+    days: String(dataset.days)
   });
 
-  if (!allFeatures.length) {
-    const reason = warnings.length
-      ? warnings.join(" | ")
-      : "No FIRMS detections were returned.";
-    throw new Error(`Could not load ${dataset.label} FIRMS data. ${reason}`);
+  const response = await fetch(`${EONET_EVENTS_URL}?${params.toString()}`, {
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    throw new Error(`EONET returned ${response.status}`);
   }
 
-  const data = buildLiveCollection(allFeatures, dataset.label, fetchedAt);
-  data.metadata.warnings = warnings;
+  const payload = await response.json();
+  const fetchedAt = new Date();
+  const features = (Array.isArray(payload.features) ? payload.features : [])
+    .map((feature) => eventToFeature(feature, fetchedAt))
+    .filter(Boolean);
+
+  const data = buildLiveCollection(features, dataset.label, fetchedAt);
   state.cache.set(periodKey, data);
   return data;
 }
@@ -783,18 +596,16 @@ async function refreshMapForCurrentState() {
 
     state.currentCollection = collection;
     const displayFeatures = filteredFeaturesFrom(collection);
-    const displayCollection = buildDisplayCollection(
-      displayFeatures,
-      collection.metadata || {}
-    );
+    const displayCollection = buildDisplayCollection(displayFeatures, {
+      ...(collection.metadata || {}),
+      visible_event_count: displayFeatures.length
+    });
     setMapData(displayCollection);
-    const warnings = Array.isArray(collection.metadata && collection.metadata.warnings)
-      ? collection.metadata.warnings
-      : [];
-    if (warnings.length) {
-      setStatusMessage(`Partial live data loaded. ${warnings.join(" | ")}`);
-    } else if (!Array.isArray(collection.features) || collection.features.length === 0) {
-      setStatusMessage("No wildfire detections were returned for this period.");
+
+    if (!Array.isArray(collection.features) || collection.features.length === 0) {
+      setStatusMessage("No EONET wildfire events were returned for this period.");
+    } else if (displayFeatures.length < collection.features.length) {
+      setStatusMessage(`Showing ${formatCount(displayFeatures.length)} filtered wildfire events from ${formatCount(collection.features.length)} open EONET events.`);
     }
   } catch (error) {
     console.error(error);
@@ -803,14 +614,7 @@ async function refreshMapForCurrentState() {
     });
     setMapData(state.currentCollection);
     elements.lastUpdate.textContent = "error";
-    const message = String(error && error.message ? error.message : error || "");
-    if (message.includes("(404)")) {
-      setStatusMessage("FIRMS returned 404. The public key in `wildfires/config.js` is likely invalid, expired, or not accepted.");
-    } else if (message.includes("Missing public FIRMS map key")) {
-      setStatusMessage("No public FIRMS key was found. Add one to `wildfires/config.js`.");
-    } else {
-      setStatusMessage("Could not load live FIRMS wildfire data. Check `wildfires/config.js`, the FIRMS key, and browser network access.");
-    }
+    setStatusMessage("Could not load live EONET wildfire data. Check browser network access and try again.");
   }
 }
 
@@ -822,16 +626,6 @@ function bindControls() {
 
   elements.intensitySelect.addEventListener("change", (event) => {
     state.intensity = event.target.value;
-    refreshMapForCurrentState();
-  });
-
-  elements.confidenceSelect.addEventListener("change", (event) => {
-    state.confidence = event.target.value;
-    refreshMapForCurrentState();
-  });
-
-  elements.satelliteSelect.addEventListener("change", (event) => {
-    state.satellite = event.target.value;
     refreshMapForCurrentState();
   });
 }
@@ -866,7 +660,7 @@ function initialiseMapLayers() {
     type: "geojson",
     data: buildDisplayCollection([]),
     cluster: true,
-    clusterRadius: 48,
+    clusterRadius: 52,
     clusterMaxZoom: 7
   });
 
@@ -880,25 +674,25 @@ function initialiseMapLayers() {
         "step",
         ["get", "point_count"],
         "#ffb347",
-        25,
+        10,
         "#ff8a3d",
-        100,
+        30,
         "#ff5c39",
-        300,
+        60,
         "#d7263d"
       ],
       "circle-radius": [
         "step",
         ["get", "point_count"],
         16,
-        25,
+        10,
         22,
-        100,
         30,
-        300,
+        30,
+        60,
         38
       ],
-      "circle-opacity": 0.8,
+      "circle-opacity": 0.84,
       "circle-stroke-width": 1.5,
       "circle-stroke-color": "#ffffff"
     }
@@ -925,7 +719,7 @@ function initialiseMapLayers() {
     source: "fires",
     filter: ["!", ["has", "point_count"]],
     paint: {
-      "circle-radius": ["*", ["get", "marker_radius"], 1.85],
+      "circle-radius": ["*", ["get", "marker_radius"], 1.8],
       "circle-color": ["get", "marker_colour"],
       "circle-opacity": ["get", "glow_opacity"]
     }
@@ -999,5 +793,5 @@ map.on("load", () => {
   setInterval(() => {
     state.cache.clear();
     refreshMapForCurrentState();
-  }, 5 * 60 * 1000);
+  }, 10 * 60 * 1000);
 });

@@ -18,39 +18,20 @@
       <div class="control-group">
         <label for="periodSelect">Time period</label>
         <select id="periodSelect">
-          <option value="24h" selected>Past 24 hours</option>
-          <option value="3d">Past 3 days</option>
-          <option value="5d">Past 5 days</option>
+          <option value="7d">Past 7 days</option>
+          <option value="30d" selected>Past 30 days</option>
+          <option value="90d">Past 90 days</option>
         </select>
       </div>
 
       <div class="control-group">
-        <label for="intensitySelect">Intensity</label>
+        <label for="intensitySelect">Estimated size</label>
         <select id="intensitySelect">
-          <option value="all" selected>All intensities</option>
-          <option value="low">Low</option>
-          <option value="moderate">Moderate</option>
-          <option value="high">High</option>
-          <option value="extreme">Extreme</option>
-        </select>
-      </div>
-
-      <div class="control-group">
-        <label for="confidenceSelect">Confidence</label>
-        <select id="confidenceSelect">
-          <option value="nominal_high" selected>Nominal and high</option>
-          <option value="all">All</option>
-          <option value="high_only">High only</option>
-        </select>
-      </div>
-
-      <div class="control-group">
-        <label for="satelliteSelect">Satellite</label>
-        <select id="satelliteSelect">
-          <option value="all" selected>All satellites</option>
-          <option value="Suomi-NPP">Suomi-NPP</option>
-          <option value="NOAA-20">NOAA-20</option>
-          <option value="NOAA-21">NOAA-21</option>
+          <option value="all" selected>All event sizes</option>
+          <option value="low">Under 100 acres</option>
+          <option value="moderate">100-999 acres</option>
+          <option value="high">1,000-9,999 acres</option>
+          <option value="extreme">10,000+ acres</option>
         </select>
       </div>
     </section>
@@ -62,23 +43,22 @@
     </a>
     <h1>Global Active Fire Status</h1>
     <p>
-      Satellite-detected active fire / thermal anomaly observations from NASA FIRMS
-      VIIRS feeds. Circle colour and size reflect Fire Radiative Power, while opacity
-      fades with observation age.
+      Lighter wildfire event mapping from NASA EONET. Circle colour and size reflect
+      estimated fire size in acres, while opacity fades as reports get older.
     </p>
 
     <div class="stats-row">
       <div class="stat">
         <strong id="visibleCount">0</strong>
-        <span>visible detections</span>
+        <span>visible events</span>
       </div>
       <div class="stat">
-        <strong id="highestFrp">0.0 MW</strong>
-        <span>highest FRP</span>
+        <strong id="highestFrp">0 acres</strong>
+        <span>largest fire</span>
       </div>
       <div class="stat">
         <strong id="extremeCount">0</strong>
-        <span>extreme detections</span>
+        <span>major fires</span>
       </div>
       <div class="stat">
         <strong id="lastUpdate">loading</strong>
@@ -89,22 +69,21 @@
     <div class="disclaimer-panel" id="statusPanel" hidden></div>
 
     <div class="disclaimer-panel">
-      These detections are not official wildfire perimeters and may include agricultural
-      burning, industrial heat sources, volcanoes, gas flares, or other thermal anomalies.
+      These are EONET wildfire events, which are lighter incident-style records rather
+      than every satellite thermal detection. They are still not official perimeter maps.
     </div>
   </section>
 
   <section class="legend">
-    <div class="legend-title">FRP intensity classes</div>
-    <div class="legend-row"><span class="dot" style="background:#f7d154"></span>Low: below 10 MW</div>
-    <div class="legend-row"><span class="dot" style="background:#ff9a3d"></span>Moderate: 10-50 MW</div>
-    <div class="legend-row"><span class="dot" style="background:#ff5c39"></span>High: 50-150 MW</div>
-    <div class="legend-row"><span class="dot" style="background:#d7263d"></span>Extreme: 150+ MW</div>
-    <div class="legend-row"><span class="dot dot-faded"></span>Older detections appear more transparent</div>
+    <div class="legend-title">Estimated event size</div>
+    <div class="legend-row"><span class="dot" style="background:#f7d154"></span>Under 100 acres</div>
+    <div class="legend-row"><span class="dot" style="background:#ff9a3d"></span>100-999 acres</div>
+    <div class="legend-row"><span class="dot" style="background:#ff5c39"></span>1,000-9,999 acres</div>
+    <div class="legend-row"><span class="dot" style="background:#d7263d"></span>10,000+ acres</div>
+    <div class="legend-row"><span class="dot dot-faded"></span>Older reports appear more transparent</div>
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
-  <script src="./config.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
