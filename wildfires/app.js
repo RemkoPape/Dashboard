@@ -1,24 +1,22 @@
 const DATASETS = {
   "24h": {
     label: "Past 24 hours",
-    path: "./data/fires-24h.geojson"
+    dayRange: 1
   },
   "3d": {
     label: "Past 3 days",
-    path: "./data/fires-3d.geojson"
+    dayRange: 3
   },
   "5d": {
     label: "Past 5 days",
-    path: "./data/fires-5d.geojson"
-  },
-  "30d": {
-    label: "Past 30 days",
-    path: "./data/fires-30d.geojson"
-  },
-  "90d": {
-    label: "Past 90 days",
-    path: "./data/fires-90d.geojson"
+    dayRange: 5
   }
+};
+
+const FIRMS_SOURCES = {
+  VIIRS_SNPP_NRT: "Suomi-NPP",
+  VIIRS_NOAA20_NRT: "NOAA-20",
+  VIIRS_NOAA21_NRT: "NOAA-21"
 };
 
 const INTENSITY_COLOURS = {
@@ -45,6 +43,9 @@ const QUICK_ADD_IMPORT_URI =
   "obsidian://adv-uri?vault=Life&commandid=quickadd%3Achoice%3A395808e2-6330-4744-af7e-6daf734002c3";
 
 const FIRMS_SOURCE_URL = "https://firms.modaps.eosdis.nasa.gov/";
+const FIRMS_MAP_KEY = window.WILDFIRE_CONFIG && window.WILDFIRE_CONFIG.FIRMS_MAP_KEY
+  ? String(window.WILDFIRE_CONFIG.FIRMS_MAP_KEY)
+  : "";
 
 const state = {
   period: "3d",
@@ -64,7 +65,8 @@ const elements = {
   visibleCount: document.getElementById("visibleCount"),
   highestFrp: document.getElementById("highestFrp"),
   extremeCount: document.getElementById("extremeCount"),
-  lastUpdate: document.getElementById("lastUpdate")
+  lastUpdate: document.getElementById("lastUpdate"),
+  statusPanel: document.getElementById("statusPanel")
 };
 
 const map = new maplibregl.Map({
@@ -159,6 +161,172 @@ function formatBrightness(value) {
 function frontMatterScalar(value) {
   if (value === null || value === undefined || value === "") return "";
   return String(value);
+}
+
+function setStatusMessage(message = "") {
+  if (!elements.statusPanel) return;
+  elements.statusPanel.hidden = !message;
+  elements.statusPanel.textContent = message;
+}
+
+function parseFloatOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseAcqDateTime(acqDate, acqTime) {
+  if (!acqDate) return null;
+  const timeText = String(acqTime || "0000").trim().padStart(4, "0");
+  const parsed = new Date(`${acqDate}T${timeText.slice(0, 2)}:${timeText.slice(2, 4)}:00Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeConfidence(rawValue) {
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
+    return { label: "Unknown", className: "unknown" };
+  }
+
+  const text = String(rawValue).trim();
+  const lowered = text.toLowerCase();
+  if (lowered === "h" || lowered === "high") return { label: "High", className: "high" };
+  if (lowered === "n" || lowered === "nominal") return { label: "Nominal", className: "nominal" };
+  if (lowered === "l" || lowered === "low") return { label: "Low", className: "low" };
+
+  const numeric = Number.parseFloat(lowered);
+  if (!Number.isFinite(numeric)) return { label: text, className: lowered || "unknown" };
+  if (numeric >= 80) return { label: `${numeric}`, className: "high" };
+  if (numeric >= 30) return { label: `${numeric}`, className: "nominal" };
+  return { label: `${numeric}`, className: "low" };
+}
+
+function normalizeDayNight(rawValue) {
+  if (!rawValue) return "Unknown";
+  const lowered = String(rawValue).trim().toLowerCase();
+  if (lowered === "d") return "Day";
+  if (lowered === "n") return "Night";
+  return String(rawValue);
+}
+
+function featureIdentifier(properties) {
+  return [
+    properties.source,
+    properties.acq_datetime_utc,
+    properties.latitude,
+    properties.longitude,
+    properties.frp,
+    properties.brightness,
+    properties.daynight
+  ].join("|");
+}
+
+function parseCsv(text) {
+  const normalized = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized.split("\n").filter((line) => line.trim() !== "");
+  if (!lines.length) return [];
+
+  function splitCsvLine(line) {
+    const values = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      const next = line[index + 1];
+      if (char === "\"") {
+        if (inQuotes && next === "\"") {
+          current += "\"";
+          index += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === "," && !inQuotes) {
+        values.push(current);
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+    values.push(current);
+    return values;
+  }
+
+  const headers = splitCsvLine(lines[0]).map((header) => header.trim());
+  return lines.slice(1).map((line) => {
+    const values = splitCsvLine(line);
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] ?? "";
+    });
+    return row;
+  });
+}
+
+function rowToFeature(row, sourceName, fetchedAt) {
+  const latitude = parseFloatOrNull(row.latitude);
+  const longitude = parseFloatOrNull(row.longitude);
+  const acquisition = parseAcqDateTime(row.acq_date, row.acq_time);
+  if (latitude === null || longitude === null || !acquisition) return null;
+
+  const brightness = parseFloatOrNull(row.brightness)
+    ?? parseFloatOrNull(row.bright_ti4)
+    ?? parseFloatOrNull(row.bright_t31);
+  const frp = parseFloatOrNull(row.frp);
+  const confidence = normalizeConfidence(row.confidence);
+  const intensityClass = intensityClassForFrp(frp);
+  const ageHours = Math.max(0, Math.round(((fetchedAt.getTime() - acquisition.getTime()) / 3600000) * 100) / 100);
+
+  const properties = {
+    latitude,
+    longitude,
+    acq_date: row.acq_date || "",
+    acq_time: String(row.acq_time || "").padStart(4, "0"),
+    acq_datetime_utc: acquisition.toISOString(),
+    satellite: FIRMS_SOURCES[sourceName] || sourceName,
+    instrument: row.instrument || "VIIRS",
+    confidence: confidence.label,
+    brightness,
+    frp,
+    daynight: normalizeDayNight(row.daynight),
+    source: sourceName,
+    age_hours: ageHours,
+    intensity_class: intensityClass,
+    confidence_class: confidence.className
+  };
+
+  return {
+    type: "Feature",
+    id: featureIdentifier(properties),
+    geometry: {
+      type: "Point",
+      coordinates: [longitude, latitude]
+    },
+    properties
+  };
+}
+
+function buildLiveCollection(features, periodLabel, generatedAt) {
+  const sourceCounts = Object.fromEntries(
+    Object.keys(FIRMS_SOURCES).map((sourceName) => [sourceName, 0])
+  );
+
+  features.forEach((feature) => {
+    const sourceName = feature.properties && feature.properties.source;
+    if (sourceName in sourceCounts) sourceCounts[sourceName] += 1;
+  });
+
+  return {
+    type: "FeatureCollection",
+    metadata: {
+      generated_at_utc: generatedAt.toISOString(),
+      period_label: periodLabel,
+      feature_count: features.length,
+      source_counts: sourceCounts,
+      disclaimer: "Satellite-detected active fire / thermal anomaly observations are not official wildfire perimeters and may include agricultural burning, industrial heat sources, volcanoes, gas flares, or other thermal anomalies."
+    },
+    features
+  };
 }
 
 function safeFileName(text) {
@@ -534,14 +702,28 @@ async function loadDataset(periodKey) {
   }
 
   const dataset = DATASETS[periodKey];
-  const response = await fetch(`${dataset.path}?t=${Date.now()}`, {
-    cache: "no-store"
-  });
-  if (!response.ok) {
-    throw new Error(`Could not load ${dataset.label} data (${response.status})`);
+  if (!FIRMS_MAP_KEY) {
+    throw new Error("Missing public FIRMS map key in wildfires/config.js");
   }
 
-  const data = await response.json();
+  const fetchedAt = new Date();
+  const allFeatures = [];
+
+  for (const sourceName of Object.keys(FIRMS_SOURCES)) {
+    const url = `${FIRMS_SOURCE_URL}api/area/csv/${encodeURIComponent(FIRMS_MAP_KEY)}/${sourceName}/world/${dataset.dayRange}`;
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Could not load ${dataset.label} FIRMS data for ${sourceName} (${response.status})`);
+    }
+
+    const rows = parseCsv(await response.text());
+    rows.forEach((row) => {
+      const feature = rowToFeature(row, sourceName, fetchedAt);
+      if (feature) allFeatures.push(feature);
+    });
+  }
+
+  const data = buildLiveCollection(allFeatures, dataset.label, fetchedAt);
   state.cache.set(periodKey, data);
   return data;
 }
@@ -549,6 +731,7 @@ async function loadDataset(periodKey) {
 async function refreshMapForCurrentState() {
   const requestId = ++state.activeRequestId;
   elements.lastUpdate.textContent = "loading";
+  setStatusMessage("");
 
   try {
     const collection = await loadDataset(state.period);
@@ -561,6 +744,9 @@ async function refreshMapForCurrentState() {
       collection.metadata || {}
     );
     setMapData(displayCollection);
+    if (!Array.isArray(collection.features) || collection.features.length === 0) {
+      setStatusMessage("No wildfire detections were returned for this period.");
+    }
   } catch (error) {
     console.error(error);
     state.currentCollection = buildDisplayCollection([], {
@@ -568,6 +754,7 @@ async function refreshMapForCurrentState() {
     });
     setMapData(state.currentCollection);
     elements.lastUpdate.textContent = "error";
+    setStatusMessage("Could not load live FIRMS wildfire data. Check `wildfires/config.js` and browser network access.");
   }
 }
 
