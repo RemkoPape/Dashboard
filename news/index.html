@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RSS Notes</title>
+  <title>RSS Notes Feed</title>
   <style>
     :root {
       --bg: #09141b;
-      --panel: rgba(255, 250, 240, 0.08);
-      --panel-strong: rgba(255, 250, 240, 0.11);
-      --border: rgba(255, 250, 240, 0.16);
-      --text: #f8f3ea;
-      --muted: #d5cabb;
-      --accent: #f2a65a;
-      --accent-soft: rgba(242, 166, 90, 0.18);
+      --panel: rgba(255, 249, 241, 0.08);
+      --panel-strong: rgba(255, 249, 241, 0.12);
+      --border: rgba(255, 249, 241, 0.16);
+      --text: #f7f2ea;
+      --muted: #d8cbbe;
+      --accent: #f0a45c;
+      --accent-soft: rgba(240, 164, 92, 0.18);
       --shadow: rgba(0, 0, 0, 0.34);
+      --success: #8bc28a;
     }
 
     * { box-sizing: border-box; }
@@ -25,9 +26,9 @@
       font-family: Georgia, "Times New Roman", serif;
       color: var(--text);
       background:
-        radial-gradient(circle at top left, rgba(242, 166, 90, 0.18), transparent 30%),
-        radial-gradient(circle at 85% 18%, rgba(86, 137, 166, 0.22), transparent 26%),
-        linear-gradient(180deg, #10212a 0%, var(--bg) 100%);
+        radial-gradient(circle at 12% 10%, rgba(240, 164, 92, 0.2), transparent 28%),
+        radial-gradient(circle at 86% 16%, rgba(86, 137, 166, 0.22), transparent 24%),
+        linear-gradient(180deg, #10202a 0%, var(--bg) 100%);
     }
 
     body::before {
@@ -36,8 +37,8 @@
       inset: 0;
       pointer-events: none;
       background-image:
-        linear-gradient(rgba(255, 250, 240, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 250, 240, 0.03) 1px, transparent 1px);
+        linear-gradient(rgba(255, 249, 241, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 249, 241, 0.03) 1px, transparent 1px);
       background-size: 32px 32px;
       mask-image: linear-gradient(to bottom, black, transparent 92%);
     }
@@ -45,7 +46,7 @@
     a { color: inherit; }
 
     .page {
-      width: min(980px, calc(100vw - 28px));
+      width: min(1120px, calc(100vw - 24px));
       margin: 0 auto;
       padding: 24px 0 40px;
       position: relative;
@@ -53,7 +54,9 @@
     }
 
     .topbar,
-    .panel {
+    .panel,
+    .item,
+    .feed-source {
       border: 1px solid var(--border);
       border-radius: 22px;
       background: linear-gradient(180deg, var(--panel-strong), var(--panel));
@@ -65,7 +68,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       padding: 12px 16px;
       margin-bottom: 16px;
     }
@@ -74,8 +77,8 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      text-decoration: none;
       min-width: 0;
+      text-decoration: none;
     }
 
     .logo {
@@ -83,8 +86,8 @@
       height: 42px;
       border-radius: 14px;
       background:
-        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), transparent 12%),
-        linear-gradient(135deg, #f2a65a, #5689a6 62%, #1c3d4f);
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.94), transparent 12%),
+        linear-gradient(135deg, #f0a45c, #5689a6 62%, #1a3e51);
       box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
       flex: none;
     }
@@ -103,47 +106,52 @@
     }
 
     .top-links,
-    .actions,
-    .card-links {
+    .hero-actions,
+    .item-actions,
+    .filter-bar,
+    .stat-list {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
 
     .chip-link,
-    .button {
+    .button,
+    .filter-chip {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
       min-height: 38px;
       padding: 0 13px;
-      border: 1px solid var(--border);
       border-radius: 999px;
-      text-decoration: none;
-      background: rgba(255, 250, 240, 0.05);
+      border: 1px solid var(--border);
+      background: rgba(255, 249, 241, 0.05);
       color: var(--muted);
+      text-decoration: none;
       font-size: 13px;
+      cursor: pointer;
     }
 
     .chip-link:hover,
-    .button:hover {
+    .button:hover,
+    .filter-chip:hover,
+    .filter-chip.active {
       color: var(--text);
-      background: rgba(255, 250, 240, 0.1);
+      background: rgba(255, 249, 241, 0.1);
     }
 
     .button.primary {
       background: var(--accent);
-      color: #1f140a;
-      border-color: rgba(242, 166, 90, 0.7);
+      border-color: rgba(240, 164, 92, 0.72);
+      color: #23170b;
       font-weight: 700;
     }
 
     .hero {
       padding: 28px;
       margin-bottom: 16px;
-      overflow: hidden;
       position: relative;
+      overflow: hidden;
     }
 
     .hero::after {
@@ -154,7 +162,7 @@
       width: 220px;
       height: 220px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(242, 166, 90, 0.28), transparent 68%);
+      background: radial-gradient(circle, rgba(240, 164, 92, 0.28), transparent 68%);
       pointer-events: none;
     }
 
@@ -165,7 +173,7 @@
       padding: 7px 12px;
       border-radius: 999px;
       background: var(--accent-soft);
-      border: 1px solid rgba(242, 166, 90, 0.28);
+      border: 1px solid rgba(240, 164, 92, 0.3);
       color: #f6d3ab;
       font-size: 12px;
       text-transform: uppercase;
@@ -173,39 +181,34 @@
       margin-bottom: 14px;
     }
 
-    h1, h2, h3, p, pre {
+    h1, h2, h3, p {
       margin: 0;
     }
 
     h1 {
-      max-width: 720px;
+      max-width: 780px;
       font-size: clamp(36px, 5vw, 58px);
-      line-height: 0.95;
+      line-height: 0.96;
       letter-spacing: -1.8px;
     }
 
     .hero p {
-      max-width: 720px;
+      max-width: 780px;
       margin-top: 14px;
       color: var(--muted);
       font-size: 17px;
       line-height: 1.6;
     }
 
-    .hero .actions {
+    .hero-actions {
       margin-top: 22px;
     }
 
-    .grid {
+    .dashboard {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
+      grid-template-columns: 1.35fr 0.65fr;
       gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    .stack {
-      display: grid;
-      gap: 16px;
+      align-items: start;
     }
 
     .panel {
@@ -215,7 +218,7 @@
     .panel h2 {
       font-size: 24px;
       letter-spacing: -0.5px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .panel p,
@@ -225,75 +228,167 @@
       line-height: 1.65;
     }
 
-    .steps,
-    .note-list {
+    .stat-list {
+      margin-top: 12px;
+    }
+
+    .stat {
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 249, 241, 0.12);
+      background: rgba(255, 249, 241, 0.04);
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      margin-bottom: 2px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .feed-layout {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .items-panel,
+    .sources-panel {
+      min-height: 300px;
+    }
+
+    .feed-sections {
+      display: grid;
+      gap: 18px;
+      margin-top: 16px;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+
+    .section-title h3 {
+      font-size: 21px;
+      letter-spacing: -0.4px;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .item-list,
+    .source-list {
       display: grid;
       gap: 12px;
-      margin-top: 8px;
     }
 
-    .step,
-    .note-card {
-      padding: 14px;
-      border-radius: 16px;
-      border: 1px solid rgba(255, 250, 240, 0.14);
-      background: rgba(255, 250, 240, 0.04);
-    }
-
-    .step strong,
-    .note-card strong {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 15px;
-      color: var(--text);
-    }
-
-    .code-block {
-      margin-top: 14px;
+    .item,
+    .feed-source {
       padding: 16px;
-      border-radius: 18px;
-      border: 1px solid rgba(255, 250, 240, 0.12);
-      background: rgba(7, 12, 16, 0.7);
-      overflow: auto;
     }
 
-    pre,
-    code {
-      font-family: "Courier New", Courier, monospace;
-      font-size: 13px;
+    .item-meta,
+    .source-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
     }
 
-    .inline-code {
-      padding: 2px 6px;
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 10px;
       border-radius: 999px;
-      background: rgba(255, 250, 240, 0.08);
-      border: 1px solid rgba(255, 250, 240, 0.1);
-      color: var(--text);
-      white-space: nowrap;
+      border: 1px solid rgba(255, 249, 241, 0.14);
+      background: rgba(255, 249, 241, 0.05);
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
-    .panel ul {
-      margin: 0;
-      padding-left: 18px;
+    .item h4,
+    .feed-source h4 {
+      font-size: 20px;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px;
+    }
+
+    .item p,
+    .feed-source p {
+      margin-bottom: 12px;
+    }
+
+    .item-actions a,
+    .source-links a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      padding-bottom: 1px;
+      border-bottom: 1px solid rgba(255, 249, 241, 0.18);
+    }
+
+    .item-actions a:hover,
+    .source-links a:hover {
+      border-color: rgba(255, 249, 241, 0.42);
+    }
+
+    .source-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .empty {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px dashed rgba(255, 249, 241, 0.18);
+      color: var(--muted);
+      background: rgba(255, 249, 241, 0.03);
+    }
+
+    .muted {
+      color: var(--muted);
     }
 
     .footer-note {
       text-align: center;
       color: var(--muted);
       font-size: 12px;
-      margin-top: 14px;
-      opacity: 0.92;
+      margin-top: 16px;
+      opacity: 0.9;
     }
 
-    @media (max-width: 860px) {
-      .grid {
+    @media (max-width: 980px) {
+      .dashboard,
+      .feed-layout {
         grid-template-columns: 1fr;
       }
     }
 
     @media (max-width: 620px) {
       .page {
-        width: min(100vw - 18px, 980px);
+        width: min(100vw - 16px, 1120px);
         padding-top: 10px;
       }
 
@@ -319,7 +414,7 @@
         <div class="logo"></div>
         <div class="brand-text">
           <strong>Dashboard Hub</strong>
-          <span>RSS notes for Obsidian</span>
+          <span>Selected RSS feeds</span>
         </div>
       </a>
 
@@ -333,101 +428,231 @@
 
     <main>
       <section class="panel hero">
-        <div class="eyebrow">RSS Notes</div>
-        <h1>Turn RSS feeds into clean Obsidian article notes.</h1>
+        <div class="eyebrow">RSS Reader</div>
+        <h1>One page for your selected videos, podcasts, science, climate, and geopolitics feeds.</h1>
         <p>
-          This page describes the local clipping flow powered by <span class="inline-code">OnlyNews.py</span>.
-          It skips AI processing, lets you define your own RSS sources, and keeps the notes connected to the
-          wider dashboard through shared links and source pages.
+          This page fetches your selected RSS sources directly in the browser, groups them into one compact reader,
+          and keeps the same source structure you can still mirror into Obsidian if you want local notes as well.
         </p>
-        <div class="actions">
-          <a class="button primary" href="../OnlyNews.py">Open script</a>
+        <div class="hero-actions">
+          <a class="button primary" href="javascript:window.location.reload()">Refresh feed</a>
           <a class="button" href="../">Back to hub</a>
-          <a class="button" href="../documents/">Open documents</a>
-          <a class="button" href="../earthquakes/">Open earthquakes</a>
+          <a class="button" href="../documents/">Documents</a>
+          <a class="button" href="../earthquakes/">Earthquakes</a>
         </div>
       </section>
 
-      <section class="grid">
+      <section class="dashboard">
         <div class="panel">
-          <h2>How it works</h2>
-          <div class="steps">
-            <div class="step">
-              <strong>1. Add feeds</strong>
-              Edit the <span class="inline-code">RSS_FEEDS</span> block in <span class="inline-code">OnlyNews.py</span> and paste in the RSS URLs you want to track.
-            </div>
-            <div class="step">
-              <strong>2. Run the collector</strong>
-              The script reads the newest entries, skips anything already seen, and writes article notes plus source notes.
-            </div>
-            <div class="step">
-              <strong>3. Review in Obsidian</strong>
-              Each note uses the article template, includes the original link, and links back to Dashboard Hub, Documents, and Earthquakes.
-            </div>
-          </div>
-
-          <div class="code-block">
-            <pre><code>RSS_FEEDS = {
-    "General": [
-        "https://example.com/rss.xml",
-        "https://example.org/feed",
-    ],
-    "Climate": [
-        "https://example.net/climate.rss",
-    ],
-}</code></pre>
-          </div>
+          <h2>Feed status</h2>
+          <p class="muted" id="feedStatusText">Loading local feed data...</p>
+          <div class="stat-list" id="feedStats"></div>
+          <div class="filter-bar" id="filterBar" style="margin-top: 16px;"></div>
         </div>
 
-        <div class="stack">
-          <aside class="panel">
-            <h2>Output</h2>
-            <div class="note-list">
-              <div class="note-card">
-                <strong>Article notes</strong>
-                New entries are written into <span class="inline-code">news/articles/</span> by group, ready for Obsidian.
-              </div>
-              <div class="note-card">
-                <strong>Source notes</strong>
-                Feed-level notes are written into <span class="inline-code">news/sources/</span> so the articles stay grouped by source.
-              </div>
-              <div class="note-card">
-                <strong>Seen state</strong>
-                The script tracks handled items in <span class="inline-code">news/.onlynews-state.json</span> to avoid duplicates.
-              </div>
-            </div>
-          </aside>
-
-          <aside class="panel">
-            <h2>Commands</h2>
-            <div class="code-block">
-              <pre><code>python OnlyNews.py
-python OnlyNews.py --dry-run
-python OnlyNews.py --output "C:\Path\To\Your\Vault\News"</code></pre>
-            </div>
-          </aside>
-        </div>
+        <aside class="panel">
+          <h2>Refresh flow</h2>
+          <p>
+            The page fetches your selected feeds live with browser-side fallbacks and caches the result locally for a short time
+            so the homepage preview and the full feed page stay fast.
+          </p>
+          <div class="source-links" style="margin-top: 14px;">
+            <a href="./feeds.js">feeds.js</a>
+            <a href="../README.md">README</a>
+          </div>
+        </aside>
       </section>
 
-      <section class="panel">
-        <h2>What gets created</h2>
-        <p>
-          The article notes follow your Obsidian template with title, aliases, date, source note, feed title, author,
-          link, tags, summary block, key points, notes, article content, and related links. This page is just the public
-          guide; the actual markdown notes are meant to be read and edited inside Obsidian.
-        </p>
-        <div class="card-links" style="margin-top: 16px;">
-          <a class="chip-link" href="../">Hub overview</a>
-          <a class="chip-link" href="../documents/">Documents page</a>
-          <a class="chip-link" href="../earthquakes/">Earthquake page</a>
-          <a class="chip-link" href="../README.md">Project README</a>
+      <section class="feed-layout">
+        <div class="panel items-panel">
+          <h2>Latest items</h2>
+          <div class="feed-sections" id="feedSections">
+            <div class="empty">No feed data loaded yet.</div>
+          </div>
         </div>
+
+        <aside class="panel sources-panel">
+          <h2>Tracked sources</h2>
+          <div class="source-list" id="sourceList">
+            <div class="empty">Source details will appear after the feed file loads.</div>
+          </div>
+        </aside>
       </section>
 
       <div class="footer-note">
-        Local RSS collection for Obsidian, connected back into the same dashboard ecosystem.
+        Public feed view on the site, local markdown notes in Obsidian, one shared source list underneath both.
       </div>
     </main>
   </div>
+
+  <script src="./feeds.js"></script>
+  <script>
+    const feedStatusText = document.getElementById('feedStatusText');
+    const feedStats = document.getElementById('feedStats');
+    const filterBar = document.getElementById('filterBar');
+    const feedSections = document.getElementById('feedSections');
+    const sourceList = document.getElementById('sourceList');
+
+    let activeCategory = 'all';
+    let feedData = null;
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatDate(isoString) {
+      if (!isoString) return 'Unknown date';
+      const date = new Date(isoString);
+      return new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date);
+    }
+
+    function formatRelativeTime(isoString) {
+      if (!isoString) return '';
+      const date = new Date(isoString).getTime();
+      const diffMinutes = Math.max(0, Math.round((Date.now() - date) / 60000));
+      if (diffMinutes < 60) return diffMinutes + 'm ago';
+      const diffHours = Math.round(diffMinutes / 60);
+      if (diffHours < 48) return diffHours + 'h ago';
+      const diffDays = Math.round(diffHours / 24);
+      return diffDays + 'd ago';
+    }
+
+    function buildStats(data) {
+      const latestItem = Array.isArray(data.items) && data.items.length ? data.items[0] : null;
+      const stats = [
+        { label: 'Feeds', value: data.feed_count || 0 },
+        { label: 'Items', value: data.item_count || 0 },
+        { label: 'Updated', value: latestItem ? formatRelativeTime(latestItem.published_at) : 'n/a' },
+      ];
+
+      feedStats.innerHTML = stats.map((stat) => `
+        <div class="stat">
+          <strong>${escapeHtml(stat.value)}</strong>
+          <span>${escapeHtml(stat.label)}</span>
+        </div>
+      `).join('');
+    }
+
+    function buildFilters(data) {
+      const categories = ['all', ...(data.sections || []).map((section) => section.category)];
+      filterBar.innerHTML = categories.map((category) => {
+        const label = category === 'all' ? 'All feeds' : category;
+        const active = category === activeCategory ? ' active' : '';
+        return `<button class="filter-chip${active}" type="button" data-category="${escapeHtml(category)}">${escapeHtml(label)}</button>`;
+      }).join('');
+    }
+
+    function renderSections(data) {
+      const sections = (data.sections || []).filter((section) => activeCategory === 'all' || section.category === activeCategory);
+
+      if (!sections.length) {
+        feedSections.innerHTML = '<div class="empty">No items match this filter yet.</div>';
+        return;
+      }
+
+      feedSections.innerHTML = sections.map((section) => `
+        <section>
+          <div class="section-title">
+            <h3>${escapeHtml(section.category)}</h3>
+            <span>${escapeHtml(section.item_count)} items</span>
+          </div>
+          <div class="item-list">
+            ${section.items.map((item) => `
+              <article class="item">
+                <div class="item-meta">
+                  <span class="badge">${escapeHtml(item.kind)}</span>
+                  <span class="badge">${escapeHtml(item.feed_title)}</span>
+                  <span class="badge">${escapeHtml(formatRelativeTime(item.published_at))}</span>
+                </div>
+                <h4>${escapeHtml(item.title)}</h4>
+                <p>${escapeHtml(item.summary || 'No summary available.')}</p>
+                <div class="item-actions">
+                  <a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Open source</a>
+                  <a href="${escapeHtml(item.source_path)}">Source note</a>
+                  <a href="${escapeHtml(item.article_path)}">Article note</a>
+                  <span class="muted">${escapeHtml(formatDate(item.published_at))}</span>
+                </div>
+              </article>
+            `).join('')}
+          </div>
+        </section>
+      `).join('');
+    }
+
+    function renderSources(data) {
+      const feeds = Array.isArray(data.feeds) ? data.feeds : [];
+      if (!feeds.length) {
+        sourceList.innerHTML = '<div class="empty">No sources found in the local feed file.</div>';
+        return;
+      }
+
+      sourceList.innerHTML = feeds.map((feed) => `
+        <article class="feed-source">
+          <div class="source-meta">
+            <span class="badge">${escapeHtml(feed.kind)}</span>
+            <span class="badge">${escapeHtml(feed.category)}</span>
+          </div>
+          <h4>${escapeHtml(feed.title)}</h4>
+          <p>${escapeHtml(feed.item_count)} recent items tracked${feed.latest_published ? ' \u00b7 latest ' + escapeHtml(formatRelativeTime(feed.latest_published)) : ''}</p>
+          <div class="source-links">
+            <a href="${escapeHtml(feed.url)}" target="_blank" rel="noopener">Open feed</a>
+            <a href="${escapeHtml(feed.source_path)}">Source note</a>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function renderFeed(data) {
+      feedData = data;
+      buildStats(data);
+      buildFilters(data);
+      renderSections(data);
+      renderSources(data);
+
+      if (data.generated_at) {
+        feedStatusText.textContent = 'Live feed snapshot loaded on ' + formatDate(data.generated_at) + '.';
+      } else {
+        feedStatusText.textContent = 'The live feed loaded, but it did not include a snapshot timestamp.';
+      }
+    }
+
+    filterBar.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-category]');
+      if (!button || !feedData) return;
+      activeCategory = button.getAttribute('data-category') || 'all';
+      buildFilters(feedData);
+      renderSections(feedData);
+    });
+
+    async function loadFeed() {
+      try {
+        const data = await window.DashboardNews.loadFeedBundle({
+          limitPerFeed: 6,
+          maxItems: 72,
+        });
+        renderFeed(data);
+      } catch (error) {
+        console.error(error);
+        feedStatusText.textContent = 'The selected feeds could not be loaded right now.';
+        feedSections.innerHTML = '<div class="empty">The live feed reader could not load your sources right now. This can happen when a source blocks browser-side access or a proxy is temporarily unavailable.</div>';
+        sourceList.innerHTML = '<div class="empty">Tracked sources will appear here once the live feed requests succeed.</div>';
+        feedStats.innerHTML = '';
+        filterBar.innerHTML = '';
+      }
+    }
+
+    loadFeed();
+  </script>
 </body>
 </html>

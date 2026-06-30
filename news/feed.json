@@ -1,0 +1,174 @@
+{
+  "generated_at": null,
+  "feed_count": 15,
+  "item_count": 0,
+  "feeds": [
+    {
+      "title": "WILD HOMESTEAD",
+      "label": "WILD HOMESTEAD",
+      "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCstLIadsuuLmDdIzMZxesfg",
+      "category": "Videos/Enjoyment",
+      "kind": "Video",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/WILD HOMESTEAD.md"
+    },
+    {
+      "title": "DW Documentary",
+      "label": "DW Documentary",
+      "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCW39zufHfsuGgpLviKh297Q",
+      "category": "Videos/Learning",
+      "kind": "Video",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/DW Documentary.md"
+    },
+    {
+      "title": "PBS Terra",
+      "label": "PBS Terra",
+      "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCpxYSWgxVt3Pyn1ovXsGQ0g",
+      "category": "Videos/Learning",
+      "kind": "Video",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/PBS Terra.md"
+    },
+    {
+      "title": "Max Fisher",
+      "label": "Max Fisher",
+      "url": "https://rss.app/feeds/OHpTHnmmcQbi7lWw.xml",
+      "category": "Videos/Learning",
+      "kind": "Video",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Max Fisher.md"
+    },
+    {
+      "title": "Astrum Earth",
+      "label": "Astrum Earth",
+      "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWBtLCE-BnzZx3DneqDiXWQ",
+      "category": "Videos/Learning",
+      "kind": "Video",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Astrum Earth.md"
+    },
+    {
+      "title": "The Climate Question",
+      "label": "The Climate Question",
+      "url": "https://podcasts.files.bbci.co.uk/w13xtvb6.rss",
+      "category": "Podcasts",
+      "kind": "Podcast",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/The Climate Question.md"
+    },
+    {
+      "title": "Science Weekly | The Guardian",
+      "label": "Science Weekly | The Guardian",
+      "url": "https://www.theguardian.com/science/series/science/rss",
+      "category": "Podcasts",
+      "kind": "Podcast",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Science Weekly The Guardian.md"
+    },
+    {
+      "title": "Carbon Brief",
+      "label": "Carbon Brief",
+      "url": "https://www.carbonbrief.org/feed",
+      "category": "RSS/Science and Climate",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Carbon Brief.md"
+    },
+    {
+      "title": "Eos",
+      "label": "Eos",
+      "url": "https://eos.org/feed",
+      "category": "RSS/Science and Climate",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Eos.md"
+    },
+    {
+      "title": "Copernicus",
+      "label": "Copernicus",
+      "url": "https://climate.copernicus.eu/rss.xml",
+      "category": "RSS/Science and Climate",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Copernicus.md"
+    },
+    {
+      "title": "Science | The Guardian",
+      "label": "Science | The Guardian",
+      "url": "https://www.theguardian.com/science/rss",
+      "category": "RSS/Science and Climate",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Science The Guardian.md"
+    },
+    {
+      "title": "BBC News",
+      "label": "BBC News",
+      "url": "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+      "category": "RSS/Science and Climate",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/BBC News.md"
+    },
+    {
+      "title": "Nisa Blog - All Things Environmental Sustainability",
+      "label": "Nisa Blog - All Things Environmental Sustainability",
+      "url": "https://feedfry.com/rss/11f1556cf7007b79a9e4704a92375605",
+      "category": "RSS/Science and Climate",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/Nisa Blog - All Things Environmental Sustainability.md"
+    },
+    {
+      "title": "FA RSS",
+      "label": "FA RSS",
+      "url": "https://www.foreignaffairs.com/rss.xml",
+      "category": "RSS/Geopolitics",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/FA RSS.md"
+    },
+    {
+      "title": "International Crisis Group",
+      "label": "International Crisis Group",
+      "url": "https://www.crisisgroup.org/rss.xml",
+      "category": "RSS/Geopolitics",
+      "kind": "Article",
+      "item_count": 0,
+      "new_notes": 0,
+      "latest_published": "",
+      "source_path": "sources/International Crisis Group.md"
+    }
+  ],
+  "sections": [],
+  "items": []
+}

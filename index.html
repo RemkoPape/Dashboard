@@ -548,6 +548,109 @@
       pointer-events: none;
     }
 
+    .news-panel {
+      margin-top: 12px;
+      padding: 18px;
+    }
+
+    .news-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .news-panel-header h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.3px;
+    }
+
+    .news-panel-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .news-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .news-preview-card {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      min-height: 150px;
+    }
+
+    .news-preview-card h3 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .news-preview-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .news-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .news-meta span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .news-preview-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: auto;
+    }
+
+    .news-preview-actions a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+      padding-bottom: 1px;
+    }
+
+    .news-preview-actions a:hover {
+      border-color: rgba(255, 255, 255, 0.36);
+    }
+
+    .news-empty {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px dashed rgba(255, 255, 255, 0.14);
+      color: var(--muted);
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
     .tool-icon {
       width: 42px;
       height: 42px;
@@ -605,7 +708,8 @@
 
     @media (max-width: 860px) {
       .hero,
-      .tools-grid {
+      .tools-grid,
+      .news-preview-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -753,7 +857,7 @@
             <div class="notif-header">
               <div>
                 <h2>Recent updates</h2>
-                <p>Earthquake alerts, document updates, and future notices.</p>
+                <p>Earthquakes, documents, RSS items, and other recent updates.</p>
               </div>
               <button class="chip-link" id="clearNotificationsButton" type="button" style="padding:6px 9px;">Clear all</button>
             </div>
@@ -865,6 +969,19 @@
           </a>
         </div>
 
+        <div class="panel news-panel">
+          <div class="news-panel-header">
+            <div>
+              <h2>Latest news</h2>
+              <p id="homeNewsStatus">Loading selected RSS items...</p>
+            </div>
+            <a class="chip-link" href="./news/">Open full feed</a>
+          </div>
+          <div class="news-preview-grid" id="homeNewsList">
+            <div class="news-empty">This strip fills itself from your selected RSS feeds when the browser can reach them.</div>
+          </div>
+        </div>
+
         <div class="footer-note">
           Built for GitHub Pages and easy embedding in Obsidian.
         </div>
@@ -872,12 +989,15 @@
     </main>
   </div>
 
+  <script src="./news/feeds.js"></script>
   <script>
     const notificationButton = document.getElementById('notificationButton');
     const notificationPopover = document.getElementById('notificationPopover');
     const notificationCount = document.getElementById('notificationCount');
     const notificationList = document.getElementById('notificationList');
     const notificationScrim = document.getElementById('notificationScrim');
+    const homeNewsStatus = document.getElementById('homeNewsStatus');
+    const homeNewsList = document.getElementById('homeNewsList');
     const clearNotificationsButton = document.getElementById('clearNotificationsButton');
     const dismissedNotificationsKey = 'dashboard-hub-dismissed-notifications';
     const notificationWindowMs = 72 * 60 * 60 * 1000;
@@ -917,6 +1037,15 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function formatAbsoluteDate(isoString) {
+      if (!isoString) return 'Unknown date';
+      return new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }).format(new Date(isoString));
     }
 
     function isRecent(milliseconds) {
@@ -1064,25 +1193,89 @@
       }
     }
 
+    async function fetchNewsNotification() {
+      try {
+        const payload = await window.DashboardNews.loadFeedBundle({
+          limitPerFeed: 4,
+          maxItems: 24,
+        });
+        const latestItem = Array.isArray(payload.items) ? payload.items[0] : null;
+        const publishedAt = latestItem ? new Date(latestItem.published_at).getTime() : 0;
+        if (!latestItem || !isRecent(publishedAt)) return null;
+
+        return {
+          id: `news:${latestItem.id || latestItem.link || latestItem.published_at}`,
+          kind: 'RSS Notes',
+          title: latestItem.title || 'Recent RSS update',
+          subtitle: `${latestItem.category || 'Selected feeds'} \u00b7 ${formatRelativeTime(publishedAt)}`,
+          href: './news/',
+        };
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
+    }
+
+    async function loadHomepageNews() {
+      try {
+        const payload = await window.DashboardNews.loadFeedBundle({
+          limitPerFeed: 4,
+          maxItems: 18,
+        });
+        const items = Array.isArray(payload.items) ? payload.items.slice(0, 3) : [];
+
+        if (!items.length) {
+          homeNewsStatus.textContent = 'No feed items were returned from the selected sources yet.';
+          homeNewsList.innerHTML = '<div class="news-empty">The live feed reader is connected, but there are no readable items available right now.</div>';
+          return;
+        }
+
+        const latest = items[0];
+        homeNewsStatus.textContent = `Updated ${formatRelativeTime(new Date(latest.published_at).getTime())} from your selected feeds.`;
+        homeNewsList.innerHTML = items.map((item) => `
+          <article class="news-preview-card">
+            <div class="news-meta">
+              <span>${escapeHtml(item.kind || 'Item')}</span>
+              <span>${escapeHtml(item.feed_title || item.category || 'Feed')}</span>
+            </div>
+            <h3>${escapeHtml(item.title || 'Untitled item')}</h3>
+            <p>${escapeHtml(item.summary || 'No summary available.')}</p>
+            <div class="news-preview-actions">
+              <a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">Open source</a>
+              <a href="./news/">Full feed</a>
+              <span class="muted">${escapeHtml(formatAbsoluteDate(item.published_at))}</span>
+            </div>
+          </article>
+        `).join('');
+      } catch (error) {
+        console.error(error);
+        homeNewsStatus.textContent = 'The live RSS preview could not be loaded right now.';
+        homeNewsList.innerHTML = '<div class="news-empty">The homepage preview depends on browser-readable RSS sources and fallback proxies. If one of those is unavailable, this section stays empty until the next successful load.</div>';
+      }
+    }
+
     function futureNotification() {
       return null;
     }
 
     async function loadNotifications() {
-      const [earthquakeNotification, documentsNotification] = await Promise.all([
+      const [earthquakeNotification, documentsNotification, newsNotification] = await Promise.all([
         fetchEarthquakeNotification(),
         fetchDocumentsNotification(),
+        fetchNewsNotification(),
       ]);
 
       const notifications = [
         earthquakeNotification,
         documentsNotification,
+        newsNotification,
         futureNotification(),
       ].filter(Boolean).filter((notification) => !dismissedNotifications.has(notificationId(notification)));
 
       updateNotificationPanel(notifications);
     }
 
+    loadHomepageNews();
     loadNotifications();
   </script>
 </body>
