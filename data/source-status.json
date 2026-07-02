@@ -1,4 +1,59 @@
 {
-  "generated_at": null,
-  "sources": []
+  "generated_at": "2026-07-02T14:27:46.450422Z",
+  "sources": [
+    {
+      "id": "usgs-earthquakes-significant",
+      "status": "live",
+      "event_count": 20
+    },
+    {
+      "id": "usgs-earthquakes-all-day",
+      "status": "live",
+      "event_count": 20
+    },
+    {
+      "id": "nasa-eonet-wildfires",
+      "status": "live",
+      "event_count": 20
+    },
+    {
+      "id": "nasa-eonet-floods",
+      "status": "live",
+      "event_count": 0
+    },
+    {
+      "id": "nasa-eonet-storms",
+      "status": "live",
+      "event_count": 20
+    },
+    {
+      "id": "nasa-eonet-volcanoes",
+      "status": "live",
+      "event_count": 9
+    },
+    {
+      "id": "nasa-eonet-landslides",
+      "status": "live",
+      "event_count": 0
+    },
+    {
+      "id": "nws-active-alerts",
+      "status": "live",
+      "event_count": 20
+    },
+    {
+      "id": "gdelt-conflict-docs",
+      "status": "error: Expecting value: line 1 column 1 (char 0)",
+      "event_count": 0
+    },
+    {
+      "id": "nasa-epic",
+      "status": "live",
+      "event_count": 10
+    },
+    {
+      "id": "airnow-api",
+      "status": "external"
+    }
+  ]
 }
