@@ -4,56 +4,73 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flood and Storm Monitor</title>
+  <link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
   <link rel="stylesheet" href="../assets/dashboard.css" />
+  <style>
+    html, body { height: 100%; }
+    body { overflow: hidden; }
+    #map { position: fixed; inset: 0; }
+    .overlay { position: absolute; top: 16px; left: 16px; z-index: 3; width: min(430px, calc(100vw - 32px)); }
+    .overlay .panel { margin-bottom: 12px; }
+    .legend { position: absolute; left: 16px; bottom: 16px; z-index: 3; width: min(320px, calc(100vw - 32px)); }
+    .map-card { background: rgba(10, 18, 28, 0.9); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28); backdrop-filter: blur(14px); color: var(--text); }
+    .map-card .body { padding: 14px 16px 16px; }
+    .map-card h1 { font-size: 19px; line-height: 1.15; margin: 0; }
+    .map-card p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+    .stat { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.06); text-align: center; }
+    .stat strong { display: block; font-size: 16px; }
+    .stat span { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .control-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .legend-list { display: grid; gap: 8px; margin-top: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+    .swatch { width: 14px; height: 14px; border-radius: 999px; flex: none; }
+    @media (max-width: 720px) {
+      .overlay, .legend { left: 12px; width: calc(100vw - 24px); }
+      .legend { bottom: 12px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
 </head>
-<body data-page-title="Flood and Storm Monitor" data-page-summary="Live flood, storm, drought, and alert sources are surfaced here with links to the shared Event Explorer." data-categories="flood,storm,weather" data-event-types="natural_hazard" data-explorer-query="?type=natural_hazard" data-base-path="..">
-  <div class="shell">
-    <header class="topbar">
-      <a class="brand" href="../"><div class="logo"></div><div><strong>Dashboard Hub</strong><span>Flood and storm monitor</span></div></a>
-      <nav class="page-actions">
-        <a class="chip-link" href="../events/?type=natural_hazard">Event Explorer</a>
-        <a class="chip-link" href="../earthquakes/">Earthquakes</a>
-        <a class="chip-link" href="../wildfires/">Wildfires</a>
-      </nav>
-    </header>
+<body data-source-ids="nws-active-alerts,nasa-eonet-floods,nasa-eonet-storms" data-page-title="Flood and Storm Monitor" data-explorer-query="?type=natural_hazard&subtype=flood">
+  <div id="map"></div>
 
-    <main>
-      <section class="hero">
-        <div class="hero-card panel">
-          <div class="eyebrow">Weather and hydro hazards</div>
-          <h1 id="monitorTitle">Flood and Storm Monitor</h1>
-          <p id="monitorSummary" style="margin-top:14px; max-width: 860px;">Live flood, storm, drought, and alert sources are surfaced here with links to the shared Event Explorer.</p>
-          <div class="hero-actions">
-            <a class="button primary" id="monitorExplorerLink" href="../events/?type=natural_hazard">Open Event Explorer</a>
-            <a class="button" href="../events/?type=natural_hazard&subtype=flood">Flood events</a>
-            <a class="button" href="../events/?type=natural_hazard&subtype=storm">Storm events</a>
-          </div>
+  <div class="overlay">
+    <section class="map-card">
+      <div class="body">
+        <a class="chip-link" href="../">&larr; Dashboard home</a>
+        <a class="chip-link" href="../events/?type=natural_hazard&subtype=flood" style="margin-left:6px;">Event Explorer</a>
+        <h1 id="mapTitle" style="margin-top:12px;">Flood and Storm Monitor</h1>
+        <p id="mapDescription">Live weather alerts and flood/storm source records from NOAA/NWS and NASA EONET.</p>
+
+        <div class="stats-row">
+          <div class="stat"><strong id="sourceCount">0</strong><span>sources</span></div>
+          <div class="stat"><strong id="featureCount">0</strong><span>events</span></div>
+          <div class="stat"><strong id="updatedAt">loading</strong><span>last update</span></div>
+          <div class="stat"><strong id="statusLabel">loading</strong><span>status</span></div>
         </div>
 
-        <aside class="panel grid" style="gap:10px; align-content:start;">
-          <article class="summary-card panel"><strong id="monitorSourceCount">0</strong><span>tracked sources</span></article>
-          <article class="summary-card panel"><strong id="monitorEventCount">0</strong><span>live records</span></article>
-          <article class="summary-card panel"><strong id="monitorLastUpdate">loading</strong><span>last update</span></article>
-          <p class="muted" id="monitorStatusText">Loading source registry…</p>
-        </aside>
-      </section>
-
-      <section class="grid two-col">
-        <div>
-          <div class="section-head"><div><h2>Live sources</h2><p class="muted">Direct browser sources and the current fallback status.</p></div></div>
-          <div class="grid" id="monitorSources"></div>
+        <div class="control-strip">
+          <a class="button primary" id="explorerLink" href="../events/?type=natural_hazard&subtype=flood">Open filtered explorer</a>
+          <button class="button" id="refreshButton" type="button">Refresh</button>
         </div>
-        <aside>
-          <div class="section-head"><div><h2>Recent records</h2><p class="muted">Latest normalised events for this monitor.</p></div></div>
-          <div class="grid" id="monitorEvents"></div>
-        </aside>
-      </section>
-    </main>
 
-    <div class="footer-note">This page stays lightweight and uses the shared source registry instead of duplicating source definitions.</div>
+        <div id="statusText" class="muted" style="margin-top:10px; font-size:12px;">Loading live layers…</div>
+      </div>
+    </section>
   </div>
 
+  <section class="legend">
+    <div class="map-card">
+      <div class="body">
+        <strong>Alert and hazard layers</strong>
+        <div class="legend-list" id="legendList"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
   <script src="../assets/dashboard-core.js"></script>
-  <script src="../assets/monitor-page.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
