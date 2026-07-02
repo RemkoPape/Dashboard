@@ -1,85 +1,102 @@
 # Dashboard Hub
 
-A compact GitHub Pages site with a few useful web pages:
+Dashboard Hub is a GitHub Pages-friendly personal monitoring site built around live public data, compact browser-side normalisation, and a shared Event Explorer.
 
-- `index.html` - the main hub and overview
-- `documents/` - a shareable document page for CVs, certificates, and PDFs
-- `earthquakes/` - a live USGS earthquake map and alert view
-- `wildfires/` - a live NASA EONET wildfire map
-- `news/` - a selected RSS feed page with a browser-side reader
+## Current structure
 
-## What it is for
+- [index.html](index.html) - homepage command centre
+- [events/](events/) - central Event Explorer with filtering, pagination, and Obsidian export
+- [earthquakes/](earthquakes/) - live USGS earthquake map
+- [wildfires/](wildfires/) - live NASA EONET wildfire map
+- [floods/](floods/) - flood and storm monitor shell
+- [volcanoes/](volcanoes/) - volcano and landslide monitor shell
+- [conflict/](conflict/) - conflict and war monitor shell
+- [satellite/](satellite/) - satellite and environmental monitor shell
+- [osm-search/](osm-search/) - OpenStreetMap location search and nearby POIs
+- [news/](news/) - shared RSS reader and feed previews
+- [documents/](documents/) - PDF and portfolio sharing page
+- [assets/](assets/) - shared CSS and JavaScript for the new dashboard architecture
+- [config/data-sources.json](config/data-sources.json) - source registry and adapter metadata
+- [data/compact-events.json](data/compact-events.json) - compact rolling fallback cache
+- [data/source-status.json](data/source-status.json) - compact source status snapshot
 
-This repo is meant to be easy to share and easy to embed in Obsidian. The
-homepage stays small and readable, while the documents page is the main public
-sharing link.
+## Architecture
 
-The homepage includes a compact readme/about section, a notification bell for
-recent earthquakes, document updates, and RSS updates from the last 72 hours,
-plus a compact latest-news preview.
+The site now uses a layered data strategy.
 
-## Environment setup
+1. The browser fetches live sources directly when CORS and terms allow it.
+2. The source registry in `config/data-sources.json` describes the endpoint, category, adapter, attribution, refresh rate, and access mode.
+3. Shared client-side code in `assets/dashboard-core.js` normalises different payload shapes into one event schema.
+4. If a live request fails and the source provides a compact cache file, the loader falls back to that small snapshot.
+5. GitHub Actions only updates compact cache files and source status snapshots; it does not store bulk archives.
 
-This repo now supports a root `.env` file for the local Python scripts.
+The dashboard avoids local bulk event archives, large raster downloads, and permanent storage of long historical data.
 
-1. Copy `.env.example` to `.env`
-2. Fill in the values you want to use
+## Live sources
 
-Available variables:
+The current registry includes direct browser sources for:
 
-- `ONLYNEWS_OUTPUT_DIR` - optional override for `OnlyNews.py` output folder
-- `ONLYNEWS_LIMIT_PER_FEED` - optional override for how many feed items `OnlyNews.py` reads per source
+- USGS earthquake GeoJSON feeds
+- NASA EONET wildfire, flood, storm, volcano, and landslide feeds
+- NOAA / National Weather Service active alerts
+- NASA EPIC Earth imagery
+- GDELT conflict reporting signals
 
-Example:
+Sources that are only external or not yet fully automated remain visible in the registry so their limits are explicit.
 
-```env
-ONLYNEWS_OUTPUT_DIR=news
-ONLYNEWS_LIMIT_PER_FEED=8
+See [DATA_SOURCES.md](DATA_SOURCES.md) for the compact source matrix.
+
+## Event Explorer
+
+The Event Explorer normalises source records into a shared event object with:
+
+- event type and subtype
+- timestamps
+- source attribution and licence
+- severity, confidence, and data mode
+- coordinates when available
+- grouped source references for likely duplicates
+
+It supports text search, date filtering, type and subtype filtering, source filters, severity and status filters, live/cached/manual/external filtering, and Obsidian note export.
+
+## Obsidian export
+
+Each event detail panel includes a `Copy Obsidian Event Note` button. The copied note contains YAML front matter, the event summary, coordinates, source links, attribution, and related source references.
+
+## GitHub Actions cache
+
+The workflow in [`.github/workflows/update-compact-cache.yml`](.github/workflows/update-compact-cache.yml) runs on a schedule and via `workflow_dispatch`.
+
+It updates compact files only:
+
+- `data/compact-events.json`
+- `data/source-status.json`
+
+The workflow is intentionally small so it can fail per-source without forcing the whole site to depend on a backend.
+
+## Running locally
+
+Open the repo with a static server. Any local server is fine, for example:
+
+```bash
+python -m http.server 8000
 ```
 
-## Wildfire data
+Then open the site root in a browser.
 
-The wildfire page now fetches NASA EONET wildfire events directly in the browser.
+## Testing
 
-This means:
+Check the following pages after changes:
 
-- no local wildfire snapshot files are required for the page to work
-- no public wildfire API key is required for the page
-- the page uses lighter incident-style wildfire events instead of dense satellite detections
+- homepage cards and live previews
+- [events/](events/) table filtering and Obsidian copy action
+- [earthquakes/](earthquakes/) and [wildfires/](wildfires/) map loads
+- [osm-search/](osm-search/) place and POI lookup
 
-## Documents
+## Attribution and licensing
 
-The documents page automatically reads PDF files from `documents/files/`.
-Add or rename a PDF there, and the page updates with the new file list.
+Each source entry carries visible attribution and licence notes where available. The UI labels live, cached, external, and manual data differently so users can distinguish the data mode at a glance.
 
-## Earthquakes
+## Obsidian and the main entry point
 
-The earthquake dashboard shows live USGS data and includes recent feed options,
-including major earthquakes from the last 72 hours.
-
-## RSS Notes
-
-The selected feed list lives in `news/feeds.js`.
-
-- the `news/` page reads those selected sources directly in the browser
-- the homepage preview and notification bell use the same shared feed loader
-- feed requests use browser-readable JSON first, then an XML proxy fallback
-- `OnlyNews.py` can still exist for local note work, but the public feed no longer depends on it
-
-## Notifications
-
-The homepage notification bell shows:
-
-- recent major earthquakes from the USGS feed
-- recent wildfire events from NASA EONET
-- document collection updates from `documents/files/`
-- recent RSS items from the shared browser-side news loader
-
-Notifications can be dismissed individually or cleared all at once, and nothing
-is shown when there are no recent updates.
-
-## Shared link
-
-Use this page as the main entry point:
-
-https://remkopape.github.io/dashboard-hub/
+The repository is designed to embed cleanly in an Obsidian dashboard. The public entry point is the homepage at [index.html](index.html).

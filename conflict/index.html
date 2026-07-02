@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conflict and War Monitor</title>
+  <link rel="stylesheet" href="../assets/dashboard.css" />
+</head>
+<body data-page-title="Conflict and War Monitor" data-page-summary="Source-reported conflict signals are grouped here with explicit source attribution and a cautious wording layer." data-categories="conflict" data-event-types="conflict" data-explorer-query="?type=conflict" data-base-path="..">
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="../"><div class="logo"></div><div><strong>Dashboard Hub</strong><span>Conflict and war monitor</span></div></a>
+      <nav class="page-actions">
+        <a class="chip-link" href="../events/?type=conflict">Event Explorer</a>
+        <a class="chip-link" href="../news/">RSS</a>
+        <a class="chip-link" href="../documents/">Documents</a>
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="hero-card panel">
+          <div class="eyebrow">Source-reported events</div>
+          <h1 id="monitorTitle">Conflict and War Monitor</h1>
+          <p id="monitorSummary" style="margin-top:14px; max-width: 860px;">Source-reported conflict signals are grouped here with explicit source attribution and a cautious wording layer.</p>
+          <div class="hero-actions">
+            <a class="button primary" id="monitorExplorerLink" href="../events/?type=conflict">Open Event Explorer</a>
+            <a class="button" href="../events/?type=conflict&status=reported">Reported events</a>
+          </div>
+        </div>
+        <aside class="panel grid" style="gap:10px; align-content:start;">
+          <article class="summary-card panel"><strong id="monitorSourceCount">0</strong><span>tracked sources</span></article>
+          <article class="summary-card panel"><strong id="monitorEventCount">0</strong><span>live records</span></article>
+          <article class="summary-card panel"><strong id="monitorLastUpdate">loading</strong><span>last update</span></article>
+          <p class="muted" id="monitorStatusText">Loading source registry…</p>
+        </aside>
+      </section>
+      <section class="grid two-col">
+        <div>
+          <div class="section-head"><div><h2>Live sources</h2><p class="muted">Source lists, confidence, and external fallback status.</p></div></div>
+          <div class="grid" id="monitorSources"></div>
+        </div>
+        <aside>
+          <div class="section-head"><div><h2>Recent records</h2><p class="muted">Latest normalised records with cautious labels.</p></div></div>
+          <div class="grid" id="monitorEvents"></div>
+        </aside>
+      </section>
+    </main>
+    <div class="footer-note">Conflict reporting may be delayed, incomplete, or geographically imprecise. Keep source links visible when you reuse these records.</div>
+  </div>
+  <script src="../assets/dashboard-core.js"></script>
+  <script src="../assets/monitor-page.js"></script>
+</body>
+</html>

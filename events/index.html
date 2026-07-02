@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Explorer</title>
+  <link rel="stylesheet" href="../assets/dashboard.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="Dashboard Hub home">
+        <div class="logo"></div>
+        <div>
+          <strong>Dashboard Hub</strong>
+          <span>Event Explorer</span>
+        </div>
+      </a>
+
+      <nav class="page-actions">
+        <a class="chip-link" href="../earthquakes/">Earthquakes</a>
+        <a class="chip-link" href="../wildfires/">Wildfires</a>
+        <a class="chip-link" href="../news/">RSS</a>
+        <a class="chip-link" href="../documents/">Documents</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-card panel">
+          <div class="eyebrow">Central event table</div>
+          <h1>Combine live hazard, alert, and reporting feeds in one filterable browser view.</h1>
+          <p style="margin-top:14px; max-width: 860px;">
+            The explorer normalises source-specific records into one common event schema, keeps the source references attached, and shows which records are live, cached, manual, or external.
+          </p>
+
+          <div class="hero-actions">
+            <a class="button primary" href="#explorer">Open explorer</a>
+            <a class="button" href="./?type=natural_hazard">Natural hazards</a>
+            <a class="button" href="./?type=conflict">Conflict</a>
+            <a class="button" href="./?type=satellite">Satellite</a>
+          </div>
+        </div>
+
+        <aside class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Source status</h2>
+              <p class="muted" id="sourceStatusText">Loading source registry…</p>
+            </div>
+          </div>
+          <div class="grid" id="sourceStatusList"></div>
+        </aside>
+      </section>
+
+      <section class="grid three-col" style="margin-bottom:16px;">
+        <article class="summary-card panel">
+          <strong id="eventCount">0</strong>
+          <span>available events</span>
+        </article>
+        <article class="summary-card panel">
+          <strong id="activeSourceCount">0</strong>
+          <span>sources with live records</span>
+        </article>
+        <article class="summary-card panel">
+          <strong id="lastUpdateLabel">loading</strong>
+          <span>last update</span>
+        </article>
+      </section>
+
+      <section class="two-col grid" id="explorer">
+        <div>
+          <div class="filter-bar panel">
+            <div class="section-head">
+              <div>
+                <h2>Filters</h2>
+                <p class="muted">Search, trim, and sort the normalised stream.</p>
+              </div>
+              <div class="page-actions">
+                <button class="chip-link" id="refreshButton" type="button">Refresh</button>
+                <button class="chip-link" id="resetButton" type="button">Reset filters</button>
+              </div>
+            </div>
+
+            <div class="filter-grid">
+              <div class="filter-item">
+                <label for="searchInput">Search</label>
+                <input id="searchInput" type="search" placeholder="Search title, source, region, tags" />
+              </div>
+
+              <div class="filter-item">
+                <label for="eventTypeSelect">Event type</label>
+                <select id="eventTypeSelect"></select>
+              </div>
+
+              <div class="filter-item">
+                <label for="subtypeSelect">Subtype</label>
+                <select id="subtypeSelect"></select>
+              </div>
+
+              <div class="filter-item">
+                <label for="sourceSelect">Source</label>
+                <select id="sourceSelect"></select>
+              </div>
+
+              <div class="filter-item">
+                <label for="severitySelect">Severity</label>
+                <select id="severitySelect"></select>
+              </div>
+
+              <div class="filter-item">
+                <label for="statusSelect">Status</label>
+                <select id="statusSelect"></select>
+              </div>
+
+              <div class="filter-item">
+                <label for="modeSelect">Data mode</label>
+                <select id="modeSelect"></select>
+              </div>
+
+              <div class="filter-item">
+                <label for="timeRangeSelect">Time range</label>
+                <select id="timeRangeSelect"></select>
+              </div>
+            </div>
+
+            <div class="inline-options" style="margin-top:4px;">
+              <label><input id="onlyActiveCheckbox" type="checkbox" /> Only active</label>
+              <label><input id="onlyMajorCheckbox" type="checkbox" /> Only major or extreme</label>
+              <label><input id="onlyCoordsCheckbox" type="checkbox" /> Only with coordinates</label>
+            </div>
+          </div>
+
+          <section class="table-shell panel" style="margin-top:16px;" aria-label="Event table">
+            <div class="section-head">
+              <div>
+                <h2>Event table</h2>
+                <p class="muted" id="resultCountText">Loading records…</p>
+              </div>
+              <div class="table-meta">
+                <span class="pill live" id="liveModePill">Live</span>
+                <span class="pill cached" id="cachedModePill">Cached</span>
+                <span class="pill external" id="externalModePill">External</span>
+              </div>
+            </div>
+
+            <div id="tableState" class="loading">Loading the current source registry and live event data…</div>
+            <div class="table-wrap" id="tableWrap" hidden>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Event</th>
+                    <th>Type</th>
+                    <th>Location</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Source</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="eventTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="pagination">
+              <div class="muted" id="pageSummaryText">No records loaded yet.</div>
+              <div class="page-actions">
+                <button class="chip-link" id="prevPageButton" type="button">Previous</button>
+                <button class="chip-link" id="nextPageButton" type="button">Next</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="detail-card panel" id="detailPanel">
+          <div class="section-head">
+            <div>
+              <h2>Event detail</h2>
+              <p class="muted">Select a row to inspect the record and copy it into Obsidian.</p>
+            </div>
+          </div>
+
+          <div id="detailState" class="empty">Choose an event row to see the full event summary, source links, and Obsidian export.</div>
+        </aside>
+      </section>
+    </main>
+
+    <div class="footer-note">Live data is fetched directly when the source allows it. External and unavailable sources remain visible in the registry.</div>
+  </div>
+
+  <script src="../assets/dashboard-core.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

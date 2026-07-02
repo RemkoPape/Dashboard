@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSM Location Search</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="../assets/dashboard.css" />
+  <style>
+    #osmMap {
+      min-height: 520px;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .search-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .result-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .result-card {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .result-card.selected {
+      border-color: rgba(121, 211, 255, 0.36);
+      background: rgba(121, 211, 255, 0.08);
+    }
+
+    .toolbar {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .category-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .category-grid label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .subtle-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1180px) {
+      .search-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="../"><div class="logo"></div><div><strong>Dashboard Hub</strong><span>OSM location search</span></div></a>
+      <nav class="page-actions">
+        <a class="chip-link" href="../events/?type=natural_hazard">Event Explorer</a>
+        <a class="chip-link" href="../documents/">Documents</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-card panel">
+          <div class="eyebrow">OpenStreetMap search</div>
+          <h1>Search places, coordinates, and nearby points of interest.</h1>
+          <p style="margin-top:14px; max-width: 860px;">Use Nominatim for place lookup and Overpass for nearby POIs. Results stay browser-side, with debounced requests and a small local cache to keep the public services respectful.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#osmSearchPanel">Start search</a>
+            <a class="button" href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>
+          </div>
+        </div>
+
+        <aside class="panel grid" style="gap:10px; align-content:start;">
+          <article class="summary-card panel"><strong id="searchCount">0</strong><span>results</span></article>
+          <article class="summary-card panel"><strong id="activeResultLabel">None</strong><span>selected place</span></article>
+          <p class="subtle-note" id="searchStatus">Enter a place name or coordinates to begin.</p>
+        </aside>
+      </section>
+
+      <section class="panel toolbar" id="osmSearchPanel">
+        <div class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+          <div class="field">
+            <label for="placeInput">Place name</label>
+            <input id="placeInput" type="search" placeholder="e.g. Mont Blanc, Reykjavík, Tokyo station" />
+          </div>
+          <div class="field">
+            <label for="latInput">Latitude</label>
+            <input id="latInput" type="text" inputmode="decimal" placeholder="52.3702" />
+          </div>
+          <div class="field">
+            <label for="lonInput">Longitude</label>
+            <input id="lonInput" type="text" inputmode="decimal" placeholder="4.8952" />
+          </div>
+        </div>
+
+        <div class="grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+          <div class="field">
+            <label for="radiusSelect">Search radius</label>
+            <select id="radiusSelect">
+              <option value="500">500 m</option>
+              <option value="1000" selected>1 km</option>
+              <option value="2500">2.5 km</option>
+              <option value="5000">5 km</option>
+              <option value="10000">10 km</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="limitSelect">Result limit</label>
+            <select id="limitSelect">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="searchModeSelect">Search mode</label>
+            <select id="searchModeSelect">
+              <option value="place" selected>Place lookup</option>
+              <option value="nearby">Nearby POIs</option>
+              <option value="both">Place + nearby</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="category-grid" id="categoryGrid"></div>
+
+        <div class="page-actions">
+          <button class="button primary" id="searchButton" type="button">Search</button>
+          <button class="button" id="copyCoordsButton" type="button">Copy coordinates</button>
+          <button class="button" id="clearButton" type="button">Clear</button>
+        </div>
+        <p class="subtle-note">Respectful usage: requests are debounced, cached briefly in the browser, and sent only when you press search or pause typing. OSM attribution is shown on the map.</p>
+      </section>
+
+      <section class="search-grid">
+        <div class="panel">
+          <div id="osmMap" aria-label="OpenStreetMap results map"></div>
+          <p class="subtle-note" style="margin-top:10px;">Map attribution: OpenStreetMap contributors. Nearby queries use Overpass where the chosen service allows browser access.</p>
+        </div>
+
+        <aside class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Results</h2>
+              <p class="muted" id="resultsMeta">No results loaded yet.</p>
+            </div>
+          </div>
+          <div class="result-list" id="resultList"></div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
